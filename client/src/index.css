@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Selsolve design tokens — kept identical to the POS app so both read as one
+   product. Tailwind exposes them as text-ink / bg-surface / border-line / …
+   (see tailwind.config.js).
+   ========================================================================== */
+
+@layer base {
+  :root {
+    --bg-main: #f6f7fb;
+    --bg-subtle: #eef1f7;
+    --bg-surface: #ffffff;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --border: #e3e8f0;
+    --border-strong: #cdd5e3;
+    --text-primary: #0d1526;
+    --text-secondary: #5a6579;
+    --text-muted: #8a94a6;
+    --accent: #4f46e5;
+    --accent-soft: #eef2ff;
+    --positive: #059669;
+    --negative: #e11d48;
+    --shadow-sm: 0 1px 2px rgba(13, 21, 38, 0.06);
+    --shadow-md: 0 4px 16px -4px rgba(13, 21, 38, 0.1);
+    --shadow-lg: 0 24px 48px -20px rgba(13, 21, 38, 0.28);
+  }
+
+  .dark {
+    --bg-main: #070b16;
+    --bg-subtle: #0c1222;
+    --bg-surface: #0f1729;
+    --surface: #0f1729;
+    --surface-raised: #141d33;
+    --border: #1e2a44;
+    --border-strong: #2b3a5c;
+    --text-primary: #eef2f9;
+    --text-secondary: #97a3ba;
+    --text-muted: #6b7891;
+    --accent: #818cf8;
+    --accent-soft: #1c2445;
+    --positive: #34d399;
+    --negative: #fb7185;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 20px -6px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 28px 60px -24px rgba(0, 0, 0, 0.8);
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    @apply font-sans antialiased min-h-screen transition-colors duration-200 selection:bg-indigo-500 selection:text-white;
+    font-feature-settings: 'cv02', 'cv03', 'cv04';
+  }
+
+  /* Counts and amounts must line up column-to-column. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Native <select> option lists don't inherit the themed background. */
+  select option {
+    background: var(--surface-raised);
+    color: var(--text-primary);
+  }
+}
+
+@layer components {
+  .surface {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .surface-raised {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Legacy alias kept so existing screens keep rendering. */
+  .panel-light {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .field-input {
+    @apply w-full rounded-xl px-3 py-2 text-[13px] font-medium transition-colors;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+
+  .field-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .field-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--surface);
+  }
+
+  .field-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .label-eyebrow {
+    @apply text-[10px] font-bold uppercase tracking-[0.09em];
+    color: var(--text-muted);
+  }
+
+  .ledger-table thead th {
+    @apply sticky top-0 z-10 py-2.5 px-3 text-left text-[10px] font-bold uppercase tracking-[0.07em];
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ledger-table tbody td {
+    @apply py-2.5 px-3 text-[13px];
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ledger-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .ledger-table tbody tr:hover td {
+    background: var(--bg-subtle);
+  }
+
+  /* Placeholder block shown while a list loads. */
+  .skeleton {
+    @apply rounded-lg animate-pulse;
+    background: var(--bg-subtle);
+  }
+
+  .card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* Custom scrollbars — thin, unobtrusive. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: padding-box;
+}
+
