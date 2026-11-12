@@ -15,7 +15,7 @@ Double-click **`start.bat`**. It:
 2. on first run installs packages, creates `server/.env` with a random JWT secret, and creates + migrates + seeds the database,
 3. opens the API (`http://localhost:5000/api`) and the app (`http://localhost:5173`) in their own windows and launches the browser.
 
-`stop-db.bat` stops the portable PostgreSQL.
+`stop.bat` closes the API and app windows and stops the portable PostgreSQL.
 
 ### Manual setup (any OS)
 
@@ -66,6 +66,23 @@ see all appointments · configure app name, tagline, logo, commission (percentag
 counts, status breakdown and commission earned.
 
 ---
+
+## Accounts and sessions
+
+- **Forgot password:** "Forgot password?" on the sign-in page e-mails a one-time link valid for 30 minutes (only a hash of it is stored).
+  Without SMTP the link is printed in the API window (`[password reset] ...`). Set `APP_URL` if the app is not on `http://localhost:5173`.
+- **Sign out everywhere:** Account page. Changing or resetting the password also signs out every other device.
+  Each login token carries the account's `token_version`; bumping it rejects all older tokens on their next request.
+- **E-mail:** fill `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (and `MAIL_FROM`) in `server/.env` to send reminders and reset links by e-mail.
+
+## Clinic situations
+
+- **Walk-in / emergency:** the doctor records a patient seen without a booking (matched by e-mail/phone or created). The visit starts at once,
+  costs the doctor's fee only, and booked patients due during it can be told about the delay in one step.
+- **Doctor can't attend:** works before or after the start. The visit moves to a time the doctor picks or their next free time (same price);
+  the patient accepts, picks another time or cancels without the 24-hour rule. With no free time left it is cancelled, never marked no-show.
+- **Waitlist:** on a doctor's page a patient asks to be notified (any day or one date). When a slot frees up — a cancellation,
+  a reopened slot or new availability — waiting patients are told, oldest request first. Booking with that doctor removes them from the list.
 
 ## Business rules
 
@@ -124,10 +141,10 @@ All tables use UUID keys and are created by a Sequelize migration (`server/src/m
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/register` · `POST /auth/register/doctor` (multipart) · `POST /auth/login` · `GET/PATCH /auth/me` · `POST /auth/change-password` |
-| Public | `GET /settings/public` · `GET /doctors` · `GET /doctors/specializations` · `GET /doctors/:id` · `GET /doctors/:id/slots` |
-| Doctor | `GET/PATCH /doctor/profile` · `PUT /doctor/profile/certificate` · `GET/POST /doctor/slots` · `DELETE /doctor/slots/:id` · `POST /doctor/slots/:id/unblock` |
-| Appointments | `GET /appointments` (role-scoped) · `POST /appointments` · `GET /appointments/:id` · `POST …/confirm` · `GET …/reschedule-preview` · `POST …/reschedule` · `POST …/cancel` · `POST …/complete` · `POST …/no-show` · `PUT …/prescription` |
+| Auth | `POST /auth/register` · `POST /auth/register/doctor` (multipart) · `POST /auth/login` · `GET/PATCH /auth/me` · `POST /auth/change-password` · `POST /auth/logout-all` · `POST /auth/forgot-password` · `POST /auth/reset-password` |
+| Public | `GET /settings/public` · `GET /doctors` · `GET /doctors/specializations` · `GET /doctors/:id` · `GET /doctors/:id/slots` · `GET /doctors/:id/reviews` |
+| Doctor | `GET/PATCH /doctor/profile` · `PUT /doctor/profile/certificate` · `PUT/DELETE /doctor/profile/photo` · `GET/POST /doctor/slots` · `DELETE /doctor/slots/:id` · `POST /doctor/slots/:id/unblock` |
+| Appointments | `GET /appointments` (role-scoped) · `POST /appointments` · `GET /appointments/:id` · `POST …/confirm` · `GET …/reschedule-preview` · `POST …/reschedule` · `POST …/cancel` · `POST …/complete` · `POST …/no-show` · `PUT …/prescription` · `PUT …/review` |
 | Notifications | `GET /notifications` · `GET /notifications/unread-count` · `PATCH /notifications/:id/read` · `PATCH /notifications/read-all` |
 | Dashboards | `GET /dashboard` (role-specific) |
 | Admin | `GET /admin/doctors` · `GET /admin/doctors/:id` · `PATCH /admin/doctors/:id/status` · `GET /doctors/:id/certificate` · `GET /admin/users` · `PATCH /admin/users/:id/status` · `GET/PUT /admin/settings` · `PUT/DELETE /admin/settings/logo` |
@@ -152,3 +169,6 @@ client/src
   components/    app shell, sidebar, appointment actions, prescription, shared bits
   pages/         auth, patient, doctor, admin and shared pages
 ```
+Patient: patient@demo.local / Demo@1234
+Doctor: ananya.rao@demo.local / Demo@1234
+Admin: admin@docbook.local / Admin@1234

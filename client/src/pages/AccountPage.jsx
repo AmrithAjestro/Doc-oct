@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Save, KeyRound, FileText, Upload, ExternalLink } from 'lucide-react';
+import { Save, KeyRound, FileText, Upload, ExternalLink, LogOut, Trash2 } from 'lucide-react';
 import { PageHeader, Panel, SectionHeader, Field, Input, Textarea, Button } from '../lib/ui';
-import { DoctorStatusBadge, Notice } from '../components/common';
+import { Avatar, DoctorStatusBadge, Notice } from '../components/common';
 import FilePicker from '../components/FilePicker';
 import { useAuth } from '../context/AuthContext';
-import api, { errorMessage } from '../lib/api';
+import api, { errorMessage, unwrap } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
+import { askConfirm } from '../lib/ui';
 import { toast } from '../lib/toast';
-import { CERTIFICATE_TYPES, fileProblem, passwordProblem, phoneProblem } from '../lib/validation';
+import { CERTIFICATE_TYPES, LOGO_TYPES, fileProblem, passwordProblem, phoneProblem } from '../lib/validation';
 import { ROLE_LABEL } from '../lib/format';
 import { openCertificate } from '../lib/files';
 
@@ -51,6 +53,7 @@ function PersonalDetails() {
 }
 
 function ChangePassword() {
+  const { startSession } = useAuth();
   const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirm: '' });
   const [saving, setSaving] = useState(false);
   const problem = form.newPassword && (passwordProblem(form.newPassword) || (form.confirm !== form.newPassword && 'Passwords do not match'));
@@ -58,9 +61,10 @@ function ChangePassword() {
   const save = async () => {
     setSaving(true);
     try {
-      await api.post('/auth/change-password', { currentPassword: form.currentPassword, newPassword: form.newPassword });
+      // Other devices are signed out; this one continues with the new token.
+      startSession(unwrap(await api.post('/auth/change-password', { currentPassword: form.currentPassword, newPassword: form.newPassword })));
       setForm({ currentPassword: '', newPassword: '', confirm: '' });
-      toast.success('Password changed');
+      toast.success('Password changed. Other devices have been signed out.');
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -101,6 +105,8 @@ function ProfessionalProfile() {
     experienceYears: p.experienceYears ?? 0,
     fee: p.fee ?? 0,
     clinicAddress: p.clinicAddress || '',
+    languages: p.languages || '',
+    clinicHours: p.clinicHours || '',
     bio: p.bio || ''
   });
   const [saving, setSaving] = useState(false);
@@ -139,6 +145,14 @@ function ProfessionalProfile() {
       <Field label="Clinic address">
         <Input value={form.clinicAddress} onChange={set('clinicAddress')} />
       </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Languages spoken" hint="e.g. English, Hindi, Kannada">
+          <Input value={form.languages} onChange={set('languages')} maxLength={200} />
+        </Field>
+        <Field label="Clinic hours" hint="e.g. Mon-Sat, 10 am - 6 pm">
+          <Input value={form.clinicHours} onChange={set('clinicHours')} maxLength={200} />
+        </Field>
+      </div>
       <Field label="About you">
         <Textarea value={form.bio} onChange={set('bio')} rows={3} maxLength={2000} />
       </Field>
@@ -147,6 +161,79 @@ function ProfessionalProfile() {
           Save profile
         </Button>
       </div>
+    </Panel>
+  );
+}
+
+function ProfilePhoto() {
+  const { user, refresh } = useAuth();
+  const p = user.doctorProfile;
+  const [busy, setBusy] = useState(false);
+  const input = React.useRef(null);
+
+  const upload = async (file) => {
+    if (!file) return;
+    const problem = fileProblem(file, LOGO_TYPES, 2);
+    if (problem) return toast.error(problem);
+    setBusy(true);
+    const form = new FormData();
+    form.append('photo', file);
+    try {
+      await api.put('/doctor/profile/photo', form);
+      await refresh();
+      toast.success('Photo updated');
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  };
+  const remove = async () => {
+    if (!(await askConfirm('Patients will see your initials instead.', { title: 'Remove photo?', confirmLabel: 'Remove', danger: true }))) return;
+    try {
+      await api.delete('/doctor/profile/photo');
+      await refresh();
+      toast.success('Photo removed');
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  };
+
+  return (
+    <Panel className="flex flex-wrap items-center gap-5">
+      <Avatar name={user.name} photoUrl={p.photoUrl} size="lg" />
+      <div className="min-w-0 flex-1">
+        <SectionHeader title="Profile photo" subtitle="A clear, friendly photo helps patients choose you. PNG, JPG or WEBP, up to 2 MB." />
+      </div>
+      <div className="flex gap-2">
+        <input ref={input} type="file" accept=".png,.jpg,.jpeg,.webp" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
+        <Button icon={Upload} loading={busy} onClick={() => input.current?.click()}>
+          {p.photoUrl ? 'Change photo' : 'Upload photo'}
+        </Button>
+        {p.photoUrl && <Button variant="ghost" icon={Trash2} onClick={remove}>Remove</Button>}
+      </div>
+    </Panel>
+  );
+}
+
+function Sessions() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const signOutAll = async () => {
+    if (!(await askConfirm('You will be signed out here and on every other phone or computer.', { title: 'Sign out everywhere?', confirmLabel: 'Sign out everywhere', danger: true }))) return;
+    try {
+      await api.post('/auth/logout-all');
+    } catch (err) {
+      return toast.error(errorMessage(err));
+    }
+    logout();
+    navigate('/login');
+  };
+  return (
+    <Panel className="flex flex-wrap items-center justify-between gap-4">
+      <SectionHeader title="Signed-in devices" subtitle="Lost a phone or used a shared computer? Sign out of every device at once." />
+      <Button icon={LogOut} onClick={signOutAll}>Sign out everywhere</Button>
     </Panel>
   );
 }
@@ -217,10 +304,12 @@ export default function AccountPage() {
     <div className="max-w-3xl">
       <PageHeader title={isDoctor ? 'My profile' : 'Account'} />
       <div className="space-y-5">
+        {isDoctor && <ProfilePhoto />}
         {isDoctor && <Certificate />}
         <PersonalDetails />
         {isDoctor && <ProfessionalProfile />}
         <ChangePassword />
+        <Sessions />
       </div>
     </div>
   );

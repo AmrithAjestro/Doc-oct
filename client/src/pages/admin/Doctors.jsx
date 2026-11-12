@@ -42,7 +42,7 @@ function CertificatePreview({ doctorId }) {
           <img src={file.url} alt="Certificate" className="max-h-[420px] w-full object-contain" />
         )}
       </div>
-      <a href={file.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+      <a href={file.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:underline dark:text-brand-400">
         Open in new tab <ExternalLink className="h-3 w-3" />
       </a>
     </div>

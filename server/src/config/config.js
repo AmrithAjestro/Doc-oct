@@ -26,6 +26,10 @@ const config = {
 
   UPLOAD_DIR: path.resolve(__dirname, '../../uploads'),
 
+  // Where the React app runs; used to build links in e-mails (password reset).
+  APP_URL: (process.env.APP_URL || (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',')[0]).trim().replace(/\/$/, ''),
+  RESET_TOKEN_MINUTES: 30,
+
   // Notification texts show times in this zone (the server cannot know each reader's zone).
   DISPLAY_TIMEZONE: process.env.DISPLAY_TIMEZONE || 'Asia/Kolkata',
 

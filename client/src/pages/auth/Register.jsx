@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { Button, Field, Input } from '../../lib/ui';
@@ -10,6 +10,8 @@ import { isEmail, passwordProblem, phoneProblem } from '../../lib/validation';
 
 export default function Register() {
   const { registerUser } = useAuth();
+  // A search started on the landing page survives sign-up.
+  const from = useLocation().state?.from;
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [touched, setTouched] = useState(false);
@@ -36,7 +38,7 @@ export default function Register() {
     try {
       await registerUser({ name: form.name, email: form.email, phone: form.phone, password: form.password });
       toast.success('Welcome! Your account is ready.');
-      navigate('/doctors', { replace: true });
+      navigate(from || '/doctors', { replace: true });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -73,7 +75,7 @@ export default function Register() {
       </form>
       <p className="mt-6 text-center text-[13px] text-ink-2">
         Already registered?{' '}
-        <Link to="/login" className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+        <Link to="/login" className="font-bold text-brand-600 hover:underline dark:text-brand-400">
           Sign in
         </Link>
       </p>

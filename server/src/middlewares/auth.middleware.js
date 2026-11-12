@@ -5,7 +5,9 @@ const { User, DoctorProfile } = require('../models');
 const AppError = require('../utils/AppError');
 const { asyncHandler } = require('../utils/helpers');
 
-const signToken = (user) => jwt.sign({ sub: user.id, role: user.role }, config.JWT_SECRET, { expiresIn: config.JWT_EXPIRES_IN });
+// `ver` ties the token to users.token_version: bumping that column revokes every token issued before.
+const signToken = (user) =>
+  jwt.sign({ sub: user.id, role: user.role, ver: user.tokenVersion ?? 0 }, config.JWT_SECRET, { expiresIn: config.JWT_EXPIRES_IN });
 
 /**
  * Verifies the bearer token and loads the user fresh from the database on every request,
@@ -26,6 +28,7 @@ const authenticate = asyncHandler(async (req, res, next) => {
   const user = await User.findByPk(payload.sub, { include: [{ model: DoctorProfile, as: 'doctorProfile' }] });
   if (!user) throw AppError.unauthorized('Account not found', 'ACCOUNT_NOT_FOUND');
   if (!user.isActive) throw AppError.unauthorized('Your account has been deactivated. Contact support.', 'ACCOUNT_INACTIVE');
+  if ((payload.ver ?? 0) !== user.tokenVersion) throw AppError.unauthorized('You were signed out. Please sign in again.', 'TOKEN_REVOKED');
 
   req.user = user;
   next();

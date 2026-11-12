@@ -72,5 +72,6 @@ const removeFile = (filePath) => {
 module.exports = {
   certificateUpload: singleFile({ field: 'certificate', subdir: 'certificates', types: CERTIFICATE_TYPES, maxMb: 5, label: 'Certificate' }),
   logoUpload: singleFile({ field: 'logo', subdir: 'branding', types: LOGO_TYPES, maxMb: 2, label: 'Logo' }),
+  photoUpload: singleFile({ field: 'photo', subdir: 'photos', types: LOGO_TYPES, maxMb: 2, label: 'Photo' }),
   removeFile
 };

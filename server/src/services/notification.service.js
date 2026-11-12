@@ -10,8 +10,9 @@ async function notify(userId, { type, title, message, appointmentId = null }, tr
 
   const email = async () => {
     try {
-      const user = await User.findByPk(userId, { attributes: ['email', 'isActive'] });
-      if (user?.isActive) await sendMail({ to: user.email, subject: title, text: message });
+      const user = await User.findByPk(userId, { attributes: ['email', 'phone', 'isActive'] });
+      if (!user?.isActive) return;
+      if (!user.email.endsWith('@patients.invalid')) await sendMail({ to: user.email, subject: title, text: message });
     } catch (err) {
       console.error('[notify] e-mail failed:', err.message);
     }

@@ -18,6 +18,8 @@ const ACTIVE_APPOINTMENT_STATUSES = Object.freeze([
   APPOINTMENT_STATUS.CONFIRMED
 ]);
 
+const VISIT_TYPES = Object.freeze({ BOOKED: 'booked', WALK_IN: 'walk_in' });
+
 const REMINDER_TYPES = Object.freeze({ CONFIRM: 'confirm', DAY: 'day', HOUR: 'hour', QUARTER: 'quarter' });
 
 const COMMISSION_TYPES = Object.freeze({ PERCENTAGE: 'percentage', FLAT: 'flat' });
@@ -29,5 +31,6 @@ module.exports = {
   APPOINTMENT_STATUS,
   ACTIVE_APPOINTMENT_STATUSES,
   REMINDER_TYPES,
+  VISIT_TYPES,
   COMMISSION_TYPES
 };

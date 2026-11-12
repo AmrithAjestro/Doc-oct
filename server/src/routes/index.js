@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 const { ROLES } = require('../config/constants');
 const { authenticate, requireRole, requireApprovedDoctor } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
-const { certificateUpload, logoUpload } = require('../middlewares/upload.middleware');
+const { certificateUpload, logoUpload, photoUpload } = require('../middlewares/upload.middleware');
 const v = require('../validators');
 const { asyncHandler: h, ok } = require('../utils/helpers');
 const { getSettings } = require('../services/settings.service');
@@ -14,6 +14,7 @@ const doctor = require('../controllers/doctor.controller');
 const appointment = require('../controllers/appointment.controller');
 const notification = require('../controllers/notification.controller');
 const admin = require('../controllers/admin.controller');
+const waitlistCtl = require('../controllers/waitlist.controller');
 
 const router = express.Router();
 const id = validate({ params: v.idParam });
@@ -54,6 +55,9 @@ router.post('/auth/login', authLimiter, validate({ body: v.auth.login }), h(auth
 router.get('/auth/me', authenticate, h(auth.me));
 router.patch('/auth/me', authenticate, validate({ body: v.auth.updateMe }), h(auth.updateMe));
 router.post('/auth/change-password', authenticate, authLimiter, validate({ body: v.auth.changePassword }), h(auth.changePassword));
+router.post('/auth/logout-all', authenticate, h(auth.logoutEverywhere));
+router.post('/auth/forgot-password', authLimiter, validate({ body: v.auth.forgotPassword }), h(auth.forgotPassword));
+router.post('/auth/reset-password', authLimiter, validate({ body: v.auth.resetPassword }), h(auth.resetPassword));
 
 /* ------------------------------------------------------- doctors (browse) */
 
@@ -61,6 +65,7 @@ router.get('/doctors', validate({ query: v.doctor.publicList }), h(doctor.list))
 router.get('/doctors/specializations', h(doctor.specializations));
 router.get('/doctors/:id', id, h(doctor.get));
 router.get('/doctors/:id/slots', validate({ params: v.idParam, query: v.doctor.range }), h(doctor.availableSlots));
+router.get('/doctors/:id/reviews', validate({ params: v.idParam, query: v.notification.list }), h(doctor.reviews));
 router.get('/doctors/:id/certificate', authenticate, id, h(admin.downloadCertificate));
 
 /* -------------------------------------------------- signed-in doctor ("me") */
@@ -69,6 +74,8 @@ const doctorOnly = [authenticate, requireRole(ROLES.DOCTOR)];
 router.get('/doctor/profile', doctorOnly, h(doctor.myProfile));
 router.patch('/doctor/profile', doctorOnly, validate({ body: v.doctor.updateProfile }), h(doctor.updateProfile));
 router.put('/doctor/profile/certificate', doctorOnly, certificateUpload, h(doctor.replaceCertificate));
+router.put('/doctor/profile/photo', doctorOnly, photoUpload, h(doctor.updatePhoto));
+router.delete('/doctor/profile/photo', doctorOnly, h(doctor.removePhoto));
 router.get('/doctor/slots', doctorOnly, requireApprovedDoctor, validate({ query: v.doctor.range }), h(doctor.mySlots));
 router.post('/doctor/slots', doctorOnly, requireApprovedDoctor, validate({ body: v.doctor.createSlots }), h(doctor.createSlots));
 router.delete('/doctor/slots/:id', doctorOnly, requireApprovedDoctor, id, h(doctor.deleteSlot));
@@ -81,14 +88,26 @@ const approvedDoctor = [requireRole(ROLES.DOCTOR), requireApprovedDoctor];
 
 router.get('/appointments', authenticate, validate({ query: v.appointment.list }), h(appointment.list));
 router.post('/appointments', authenticate, patientOnly, validate({ body: v.appointment.book }), h(appointment.book));
+router.post('/appointments/walk-in', authenticate, approvedDoctor, validate({ body: v.appointment.walkIn }), h(appointment.walkIn));
+router.post('/doctor/caught-up', authenticate, approvedDoctor, h(appointment.caughtUp));
+router.post('/appointments/notify-delay', authenticate, approvedDoctor, validate({ body: v.appointment.notifyDelay }), h(appointment.notifyDelay));
 router.get('/appointments/:id', authenticate, id, h(appointment.get));
 router.post('/appointments/:id/confirm', authenticate, patientOnly, id, h(appointment.confirm));
 router.get('/appointments/:id/reschedule-preview', authenticate, patientOnly, id, h(appointment.reschedulePreview));
 router.post('/appointments/:id/reschedule', authenticate, patientOnly, validate({ params: v.idParam, body: v.appointment.reschedule }), h(appointment.reschedule));
 router.post('/appointments/:id/cancel', authenticate, validate({ params: v.idParam, body: v.appointment.cancel }), h(appointment.cancel));
 router.post('/appointments/:id/complete', authenticate, approvedDoctor, validate({ params: v.idParam, body: v.appointment.complete }), h(appointment.complete));
+router.get('/appointments/:id/unavailable-options', authenticate, approvedDoctor, id, h(appointment.unavailableOptions));
+router.post('/appointments/:id/doctor-unavailable', authenticate, approvedDoctor, validate({ params: v.idParam, body: v.appointment.doctorUnavailable }), h(appointment.doctorUnavailable));
 router.post('/appointments/:id/no-show', authenticate, approvedDoctor, id, h(appointment.noShow));
+router.put('/appointments/:id/review', authenticate, patientOnly, validate({ params: v.idParam, body: v.appointment.review }), h(appointment.review));
 router.put('/appointments/:id/prescription', authenticate, approvedDoctor, validate({ params: v.idParam, body: v.appointment.prescription }), h(appointment.savePrescription));
+
+/* -------------------------------------------------------------- waitlist */
+
+router.get('/waitlist', authenticate, patientOnly, h(waitlistCtl.mine));
+router.post('/doctors/:id/waitlist', authenticate, patientOnly, validate({ params: v.idParam, body: v.waitlist.join }), h(waitlistCtl.join));
+router.delete('/doctors/:id/waitlist', authenticate, patientOnly, id, h(waitlistCtl.leave));
 
 /* --------------------------------------------------------- notifications */
 

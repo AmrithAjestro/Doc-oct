@@ -42,7 +42,7 @@ export default function Login() {
         <Field label="Email" required>
           <Input type="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required autoFocus />
         </Field>
-        <Field label="Password" required>
+        <Field label="Password" required hint={<Link to="/forgot-password" className="font-semibold text-brand-600 hover:underline dark:text-brand-400">Forgot password?</Link>}>
           <div className="relative">
             <Input type={show ? 'text' : 'password'} autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required className="pr-10" />
             <button type="button" onClick={() => setShow(!show)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink" aria-label={show ? 'Hide password' : 'Show password'}>
@@ -59,13 +59,13 @@ export default function Login() {
       <div className="mt-6 space-y-2 text-center text-[13px] text-ink-2">
         <p>
           New patient?{' '}
-          <Link to="/register" className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+          <Link to="/register" state={location.state} className="font-bold text-brand-600 hover:underline dark:text-brand-400">
             Create an account
           </Link>
         </p>
         <p>
           Are you a doctor?{' '}
-          <Link to="/register/doctor" className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+          <Link to="/register/doctor" className="font-bold text-brand-600 hover:underline dark:text-brand-400">
             Join as a doctor
           </Link>
         </p>

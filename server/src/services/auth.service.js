@@ -1,4 +1,7 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const config = require('../config/config');
+const { sendMail } = require('./mailer.service');
 const { ROLES } = require('../config/constants');
 const { sequelize, User, DoctorProfile } = require('../models');
 const AppError = require('../utils/AppError');
@@ -62,12 +65,57 @@ async function updateMe(user, { name, phone }) {
   return user;
 }
 
+/** Changing the password signs out every other device; the caller gets a fresh token. */
 async function changePassword(userId, { currentPassword, newPassword }) {
   const user = await User.scope('withPassword').findByPk(userId);
   if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
     throw AppError.badRequest('Current password is incorrect', 'INVALID_PASSWORD');
   }
-  await user.update({ passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS) });
+  await user.update({ passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS), tokenVersion: user.tokenVersion + 1 });
+  return loadSession(user.id);
 }
 
-module.exports = { registerUser, registerDoctor, login, loadSession, updateMe, changePassword, BCRYPT_ROUNDS };
+/** Revokes every token issued for this user, on every device. */
+async function logoutEverywhere(user) {
+  await User.increment('tokenVersion', { where: { id: user.id } });
+}
+
+const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
+
+/**
+ * Sends a one-time reset link (valid RESET_TOKEN_MINUTES). Only a hash of the token is stored.
+ * The answer is the same whether or not the e-mail exists, so accounts cannot be discovered.
+ */
+async function requestPasswordReset({ email }) {
+  const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
+  if (!user || !user.isActive) return;
+  const token = crypto.randomBytes(32).toString('hex');
+  await user.update({ resetTokenHash: sha256(token), resetTokenExpiresAt: new Date(Date.now() + config.RESET_TOKEN_MINUTES * 60000) });
+  const link = `${config.APP_URL}/reset-password?token=${token}`;
+  if (!config.IS_PRODUCTION) console.log(`[password reset] ${user.email}: ${link}`);
+  await sendMail({
+    to: user.email,
+    subject: 'Reset your password',
+    text: `Use this link to choose a new password. It works once and expires in ${config.RESET_TOKEN_MINUTES} minutes:
+
+${link}
+
+If you did not ask for this, ignore this e-mail.`
+  }).catch((err) => console.error('[password reset] e-mail failed:', err.message));
+}
+
+async function resetPassword({ token, password }) {
+  const user = await User.scope('withPassword').findOne({ where: { resetTokenHash: sha256(token) } });
+  if (!user || !user.resetTokenExpiresAt || user.resetTokenExpiresAt < new Date()) {
+    throw AppError.badRequest('This reset link is invalid or has expired. Ask for a new one.', 'RESET_TOKEN_INVALID');
+  }
+  await user.update({
+    passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
+    resetTokenHash: null,
+    resetTokenExpiresAt: null,
+    tokenVersion: user.tokenVersion + 1
+  });
+  return loadSession(user.id);
+}
+
+module.exports = { registerUser, registerDoctor, login, loadSession, updateMe, changePassword, logoutEverywhere, requestPasswordReset, resetPassword, BCRYPT_ROUNDS };

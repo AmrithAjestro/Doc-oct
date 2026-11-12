@@ -12,7 +12,7 @@ const cx = (...parts) => parts.filter(Boolean).join(' ');
 
 export function Panel({ className = '', children, padded = true, ...rest }) {
   return (
-    <div className={cx('surface rounded-2xl', padded && 'p-4 sm:p-5', className)} {...rest}>
+    <div className={cx('surface rounded-[20px]', padded && 'p-5 sm:p-6', className)} {...rest}>
       {children}
     </div>
   );
@@ -24,7 +24,7 @@ export function PageHeader({ eyebrow, title, subtitle, actions, className = '' }
     <div className={cx('mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between', className)}>
       <div className="min-w-0">
         {eyebrow && <div className="label-eyebrow mb-1">{eyebrow}</div>}
-        <h1 className="truncate text-xl font-bold tracking-tight text-ink sm:text-2xl">{title}</h1>
+        <h1 className="truncate text-[22px] font-bold tracking-tight text-ink sm:text-[28px]">{title}</h1>
         {subtitle && <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-ink-2">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -36,7 +36,7 @@ export function SectionHeader({ title, subtitle, actions, className = '' }) {
   return (
     <div className={cx('flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between', className)}>
       <div className="min-w-0">
-        <h2 className="truncate text-[15px] font-bold tracking-tight text-ink">{title}</h2>
+        <h2 className="truncate text-[16px] font-semibold text-ink">{title}</h2>
         {subtitle && <p className="mt-0.5 text-xs leading-relaxed text-ink-2">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -45,27 +45,27 @@ export function SectionHeader({ title, subtitle, actions, className = '' }) {
 }
 
 export function Toolbar({ children, className = '' }) {
-  return <div className={cx('surface flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2.5', className)}>{children}</div>;
+  return <div className={cx('flex flex-wrap items-center gap-2 py-1', className)}>{children}</div>;
 }
 
 /* ------------------------------- Controls ------------------------------- */
 
 const BUTTON_VARIANTS = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm shadow-indigo-600/25 border-transparent',
-  success: 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm shadow-emerald-600/25 border-transparent',
-  danger: 'bg-rose-600 text-white hover:bg-rose-500 shadow-sm shadow-rose-600/25 border-transparent',
-  subtle: 'bg-subtle text-ink border-line hover:border-line-strong',
+  primary: 'bg-brand-600 text-white hover:bg-brand-700 border-transparent dark:bg-brand-500 dark:hover:bg-brand-400',
+  success: 'bg-green-700 text-white hover:bg-green-800 border-transparent dark:bg-green-600 dark:hover:bg-green-500',
+  danger: 'bg-rose-700 text-white hover:bg-rose-800 border-transparent',
+  subtle: 'bg-surface text-ink border-line hover:border-line-strong hover:bg-subtle',
   ghost: 'bg-transparent text-ink-2 hover:bg-subtle hover:text-ink border-transparent',
   outline: 'bg-transparent text-accent border-accent hover:bg-accent-soft'
 };
 
 export function Button({ variant = 'subtle', size = 'md', icon: Icon, loading = false, className = '', children, type = 'button', ...rest }) {
-  const sizing = size === 'sm' ? 'px-2.5 py-1.5 text-[11px]' : size === 'lg' ? 'px-5 py-2.5 text-sm' : 'px-3.5 py-2 text-xs';
+  const sizing = size === 'sm' ? 'px-3 py-1.5 text-[12.5px]' : size === 'lg' ? 'px-6 py-3 text-[15px]' : 'px-4 py-2 text-[13.5px]';
   return (
     <button
       type={type}
       className={cx(
-        'inline-flex items-center justify-center gap-1.5 rounded-xl border font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex items-center justify-center gap-1.5 rounded-xl border font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         BUTTON_VARIANTS[variant],
         sizing,
         className
@@ -180,8 +180,8 @@ export function SegmentedControl({ options, value, onChange, className = '' }) {
             onClick={() => onChange(key)}
             aria-pressed={active}
             className={cx(
-              'rounded-[10px] px-3 py-1.5 text-[11px] font-bold transition-all',
-              active ? 'bg-indigo-600 text-white shadow-sm' : 'text-ink-2 hover:text-ink'
+              'rounded-[10px] px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+              active ? 'bg-surface text-brand-700 ring-1 ring-line dark:text-brand-300' : 'text-ink-2 hover:text-ink'
             )}
           >
             {label}
@@ -196,8 +196,8 @@ export function SegmentedControl({ options, value, onChange, className = '' }) {
 
 const TONES = {
   neutral: 'bg-subtle text-ink-2',
-  accent: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300',
-  success: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
+  accent: 'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200 dark:bg-brand-950/60 dark:text-brand-300 dark:ring-brand-800',
+  success: 'bg-green-50 text-green-800 ring-1 ring-inset ring-green-200 dark:bg-green-950/50 dark:text-green-300 dark:ring-green-900',
   warning: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
   danger: 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300',
   info: 'bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300'
@@ -205,7 +205,7 @@ const TONES = {
 
 export function Badge({ tone = 'neutral', className = '', children }) {
   return (
-    <span className={cx('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide', TONES[tone], className)}>
+    <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-semibold', TONES[tone], className)}>
       {children}
     </span>
   );
@@ -223,8 +223,8 @@ export function statusTone(status) {
 export function StatTile({ label, value, sub, tone = 'neutral', onClick }) {
   const accent = {
     neutral: 'text-ink',
-    accent: 'text-indigo-600 dark:text-indigo-400',
-    success: 'text-emerald-600 dark:text-emerald-400',
+    accent: 'text-brand-600 dark:text-brand-400',
+    success: 'text-green-700 dark:text-green-400',
     danger: 'text-rose-600 dark:text-rose-400',
     warning: 'text-amber-600 dark:text-amber-400'
   }[tone];
@@ -233,11 +233,11 @@ export function StatTile({ label, value, sub, tone = 'neutral', onClick }) {
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={cx('surface w-full rounded-2xl p-4 text-left transition-all', onClick && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md')}
+      className={cx('surface w-full rounded-[20px] p-5 text-left transition-colors', onClick && 'cursor-pointer hover:border-line-strong')}
     >
       <div className="label-eyebrow">{label}</div>
-      <div className={cx('tabular mt-2 truncate text-[22px] font-bold leading-tight tracking-tight', accent)}>{value}</div>
-      {sub && <div className="mt-2 truncate text-[11px] font-semibold text-ink-3">{sub}</div>}
+      <div className={cx('tabular mt-1.5 truncate text-[30px] font-semibold leading-tight tracking-tight', accent)}>{value}</div>
+      {sub && <div className="mt-1 truncate text-[12.5px] text-ink-2">{sub}</div>}
     </Tag>
   );
 }
@@ -283,16 +283,16 @@ export function SkeletonRows({ rows = 5, cols = 4 }) {
 export function DataTable({ columns, rows, rowKey = (row, i) => row.id ?? i, loading = false, empty, maxHeight = '65vh', onRowClick, className = '' }) {
   if (loading && (!rows || rows.length === 0)) {
     return (
-      <div className={cx('surface rounded-2xl', className)}>
+      <div className={cx('surface rounded-[20px]', className)}>
         <SkeletonRows cols={Math.min(columns.length, 5)} />
       </div>
     );
   }
   if (!rows || rows.length === 0) {
-    return <div className={cx('surface rounded-2xl', className)}>{empty || <EmptyState title="Nothing to show yet" />}</div>;
+    return <div className={cx('surface rounded-[20px]', className)}>{empty || <EmptyState title="Nothing to show yet" />}</div>;
   }
   return (
-    <div className={cx('surface overflow-hidden rounded-2xl', className)}>
+    <div className={cx('surface overflow-hidden rounded-[20px]', className)}>
       <div className="overflow-auto" style={{ maxHeight }}>
         <table className="ledger-table w-full border-collapse">
           <thead>
@@ -361,7 +361,7 @@ export function Modal({ open, onClose, title, subtitle, size = 'md', className =
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.16 }}
             className={cx(
-              'surface-raised flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl shadow-2xl sm:rounded-2xl',
+              'surface-raised flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl shadow-[var(--shadow-lg)] sm:rounded-2xl',
               MODAL_WIDTH[size] || MODAL_WIDTH.md,
               className
             )}
@@ -409,7 +409,7 @@ export function Drawer({ open, onClose, title, subtitle, size = 'md', className 
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
-            className={cx('surface-raised flex h-full w-full flex-col shadow-2xl', DRAWER_WIDTH[size] || DRAWER_WIDTH.md, className)}
+            className={cx('surface-raised flex h-full w-full flex-col shadow-[var(--shadow-lg)]', DRAWER_WIDTH[size] || DRAWER_WIDTH.md, className)}
           >
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4">
               <div className="min-w-0 flex-1">
@@ -497,7 +497,7 @@ export function ConfirmHost() {
             transition={{ duration: 0.14 }}
             role="alertdialog"
             aria-modal="true"
-            className="surface-raised w-full max-w-sm overflow-hidden rounded-2xl shadow-2xl"
+            className="surface-raised w-full max-w-sm overflow-hidden rounded-2xl shadow-[var(--shadow-lg)]"
           >
             <div className="flex items-start gap-3 px-5 pb-3 pt-5">
               <div
@@ -559,7 +559,7 @@ export function LoadingRows({ colSpan, rows = 4 }) {
 
 const ROW_ACTION_TONES = {
   neutral: 'bg-subtle text-ink-2 hover:text-ink hover:bg-line',
-  accent: 'bg-subtle text-ink-2 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300',
+  accent: 'bg-subtle text-ink-2 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950/50 dark:hover:text-brand-300',
   warning: 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300',
   success: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300',
   danger: 'bg-subtle text-ink-2 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/50 dark:hover:text-rose-400',
@@ -601,7 +601,7 @@ export function Switch({ checked, onChange, label, tone = 'accent', disabled = f
       <span
         className={cx(
           "h-6 w-11 rounded-full bg-line transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all after:content-[''] peer-checked:after:translate-x-5 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--accent)]",
-          tone === 'warning' ? 'peer-checked:bg-amber-500' : 'peer-checked:bg-indigo-600'
+          tone === 'warning' ? 'peer-checked:bg-amber-500' : 'peer-checked:bg-brand-600'
         )}
       />
     </label>

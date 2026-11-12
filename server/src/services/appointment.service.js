@@ -7,13 +7,18 @@ const {
   APPOINTMENT_STATUS: S,
   ACTIVE_APPOINTMENT_STATUSES: ACTIVE
 } = require('../config/constants');
-const { sequelize, Appointment, Slot, DoctorProfile, User, Prescription } = require('../models');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const { VISIT_TYPES } = require('../config/constants');
+const { sequelize, Appointment, Slot, DoctorProfile, User, Prescription, Review } = require('../models');
 const AppError = require('../utils/AppError');
 const { HOUR, formatDateTime, parsePagination, pageMeta } = require('../utils/helpers');
 const { calculateFee } = require('../utils/fees');
 const { getSettings } = require('./settings.service');
 const { notify } = require('./notification.service');
 const reminders = require('./reminder.service');
+const waitlist = require('./waitlist.service');
+const { insideLateWindow } = require('../utils/runningLate');
 
 const { LOCK_WINDOW_HOURS, AUTO_RESCHEDULE_MIN_LEAD_HOURS, MAX_AUTO_RESCHEDULES } = config.RULES;
 const LOCK_MS = LOCK_WINDOW_HOURS * HOUR;
@@ -22,6 +27,8 @@ const LOCK_MS = LOCK_WINDOW_HOURS * HOUR;
 
 const ms = (d) => new Date(d).getTime();
 const isInsideLockWindow = (startAt, now = Date.now()) => ms(startAt) - now < LOCK_MS;
+// The doctor moved the visit or said they are running late: the 24-hour lock does not bind the patient.
+const lockLifted = (appt) => Boolean(appt.awaitingPatientReply || appt.delayNotifiedAt);
 const confirmDeadline = (startAt) => new Date(ms(startAt) - LOCK_MS);
 
 /**
@@ -55,7 +62,7 @@ function assertPatientCanChange(appt, now = Date.now()) {
   if (!ACTIVE.includes(appt.status)) {
     throw AppError.conflict(`This appointment is already ${appt.status.replace('_', ' ')}`, 'INVALID_STATUS');
   }
-  if (isInsideLockWindow(appt.startAt, now)) {
+  if (!lockLifted(appt) && isInsideLockWindow(appt.startAt, now)) {
     throw AppError.rule(
       `Appointments cannot be cancelled or rescheduled within ${LOCK_WINDOW_HOURS} hours of the start time`,
       'LOCK_WINDOW'
@@ -97,7 +104,8 @@ function present(appt, actor, now = Date.now()) {
   const json = typeof appt.toJSON === 'function' ? appt.toJSON() : appt;
   const start = ms(appt.startAt);
   const active = ACTIVE.includes(appt.status);
-  const locked = start - now < LOCK_MS;
+  // A visit the doctor moved is not locked for the patient until they have answered.
+  const locked = start - now < LOCK_MS && !lockLifted(appt);
   const isPatient = actor.role === ROLES.USER;
   const isDoctor = actor.role === ROLES.DOCTOR;
   const started = start <= now;
@@ -105,12 +113,14 @@ function present(appt, actor, now = Date.now()) {
   json.confirmBy = confirmDeadline(appt.startAt);
   json.isLocked = locked;
   json.actions = {
-    confirm: isPatient && appt.status === S.PENDING_CONFIRMATION && !locked,
+    confirm: isPatient && ((appt.status === S.PENDING_CONFIRMATION && !locked) || Boolean(appt.awaitingPatientReply && active)),
     reschedule: isPatient && active && !locked,
     cancel: (isPatient && active && !locked) || (isDoctor && active && !started) || (actor.role === ROLES.ADMIN && active && !started),
+    unavailable: isDoctor && active && appt.visitType !== 'walk_in',
     complete: isDoctor && appt.status === S.CONFIRMED && started,
-    noShow: isDoctor && appt.status === S.CONFIRMED && started,
-    prescribe: isDoctor && [S.CONFIRMED, S.COMPLETED].includes(appt.status) && started
+    noShow: isDoctor && appt.status === S.CONFIRMED && started && appt.visitType !== 'walk_in',
+    prescribe: isDoctor && [S.CONFIRMED, S.COMPLETED].includes(appt.status) && started,
+    review: isPatient && appt.status === S.COMPLETED
   };
   return json;
 }
@@ -159,6 +169,7 @@ async function book(actor, { slotId, reason }) {
       );
       await slot.update({ status: SLOT_STATUS.BOOKED }, { transaction: t });
       await reminders.scheduleFor(appt, t);
+      await waitlist.removeOnBooking(actor.id, doctor.id, t);
 
       const when = formatDateTime(appt.startAt);
       await notify(
@@ -196,6 +207,16 @@ async function confirmAttendance(actor, id) {
     await lockPatient(actor.id, t);
     const appt = await loadLocked(id, t);
     if (appt.userId !== actor.id) throw AppError.notFound('Appointment not found');
+    if (appt.awaitingPatientReply) {
+      // Accepting the time the doctor offered after they could not attend.
+      await appt.update({ awaitingPatientReply: false, status: S.CONFIRMED, confirmedAt: new Date() }, { transaction: t });
+      await notify(
+        appt.doctor.userId,
+        { type: 'booking_confirmed', title: 'New time accepted', message: `${appt.patient.name} accepted the new time ${formatDateTime(appt.startAt)}.`, appointmentId: appt.id },
+        t
+      );
+      return appt;
+    }
     if (appt.status === S.CONFIRMED) return appt; // idempotent
     if (appt.status !== S.PENDING_CONFIRMATION) throw AppError.conflict(`This appointment is ${appt.status.replace('_', ' ')}`, 'INVALID_STATUS');
     if (isInsideLockWindow(appt.startAt)) {
@@ -219,11 +240,18 @@ async function moveToSlot(appt, newSlot, t, { by }) {
   const previousStartAt = appt.startAt;
   if (appt.slotId) {
     const oldSlot = await Slot.findByPk(appt.slotId, { transaction: t, lock: t.LOCK.UPDATE });
-    if (oldSlot) await oldSlot.update({ status: SLOT_STATUS.AVAILABLE }, { transaction: t });
+    // The doctor was not available at the old time, so that slot is blocked rather than reopened.
+    if (oldSlot) {
+      // Not reopened if the doctor was unavailable then, or is running late at that time.
+      const keepClosed = by === 'doctor' || insideLateWindow(appt.doctor, oldSlot.startAt);
+      await oldSlot.update({ status: keepClosed ? SLOT_STATUS.BLOCKED : SLOT_STATUS.AVAILABLE }, { transaction: t });
+      if (!keepClosed) t.afterCommit(() => waitlist.announce(oldSlot.doctorId, [oldSlot]));
+    }
   }
   await newSlot.update({ status: SLOT_STATUS.BOOKED }, { transaction: t });
 
   const bySystem = by === 'system';
+  const byDoctor = by === 'doctor';
   await appt.update(
     {
       slotId: newSlot.id,
@@ -233,8 +261,13 @@ async function moveToSlot(appt, newSlot, t, { by }) {
       rescheduleCount: appt.rescheduleCount + 1,
       autoRescheduleCount: appt.autoRescheduleCount + (bySystem ? 1 : 0),
       // The patient picked the new time themselves, so it counts as confirmed; a system move needs confirming.
+      // A doctor's move stands unless the patient changes it (they are asked to accept).
       status: bySystem ? S.PENDING_CONFIRMATION : S.CONFIRMED,
-      confirmedAt: bySystem ? null : new Date()
+      confirmedAt: bySystem ? null : byDoctor ? appt.confirmedAt : new Date(),
+      awaitingPatientReply: byDoctor,
+      delayNotifiedAt: null,
+      delayMinutes: null,
+      ...(byDoctor ? {} : { doctorMoveReason: null })
     },
     { transaction: t }
   );
@@ -246,7 +279,8 @@ async function previewReschedule(actor, id) {
   const appt = await Appointment.findByPk(id, { include: [doctorInclude] });
   if (!appt || appt.userId !== actor.id) throw AppError.notFound('Appointment not found');
   assertPatientCanChange(appt);
-  const slot = await findNextSlot({ doctorId: appt.doctorId, after: appt.startAt, userId: actor.id, excludeAppointmentId: appt.id });
+  const after = lockLifted(appt) ? new Date() : appt.startAt;
+  const slot = await findNextSlot({ doctorId: appt.doctorId, after, userId: actor.id, excludeAppointmentId: appt.id });
   if (!slot) {
     throw AppError.notFound('No later slot is available with this doctor right now. You can cancel the appointment instead.', 'NO_SLOT_AVAILABLE');
   }
@@ -265,7 +299,8 @@ async function reschedule(actor, id, { slotId }) {
       if (!slot || slot.doctorId !== appt.doctorId) throw AppError.badRequest('Choose a slot with the same doctor', 'INVALID_SLOT');
       if (slot.id === appt.slotId) throw AppError.badRequest('That is the current slot', 'SAME_SLOT');
       if (slot.status !== SLOT_STATUS.AVAILABLE) throw AppError.conflict('That slot was just taken. Please look for the next one again.', 'SLOT_UNAVAILABLE');
-      if (isInsideLockWindow(slot.startAt)) throw AppError.rule(`The new slot must be more than ${LOCK_WINDOW_HOURS} hours away`, 'LOCK_WINDOW');
+      if (!lockLifted(appt) && isInsideLockWindow(slot.startAt)) throw AppError.rule(`The new slot must be more than ${LOCK_WINDOW_HOURS} hours away`, 'LOCK_WINDOW');
+      if (ms(slot.startAt) <= Date.now()) throw AppError.rule('That time has already passed', 'SLOT_IN_PAST');
       if (await findUserClash(actor.id, slot.startAt, slot.endAt, t, appt.id)) {
         throw AppError.conflict('You already have another appointment at that time', 'PATIENT_OVERLAP');
       }
@@ -287,12 +322,15 @@ async function reschedule(actor, id, { slotId }) {
 /** Cancels inside an existing transaction. Used by the API, the scheduler and admin cascades. */
 async function cancelInTransaction(appt, { by, reason }, t) {
   const now = Date.now();
-  await appt.update({ status: S.CANCELLED, cancelledAt: new Date(now), cancelledBy: by, cancelReason: reason || null }, { transaction: t });
+  await appt.update({ status: S.CANCELLED, cancelledAt: new Date(now), cancelledBy: by, cancelReason: reason || null, awaitingPatientReply: false }, { transaction: t });
 
   if (appt.slotId && ms(appt.startAt) > now) {
     const slot = await Slot.findByPk(appt.slotId, { transaction: t, lock: t.LOCK.UPDATE });
     // A doctor who cancels is not available then, so the slot is blocked instead of reopened.
-    if (slot) await slot.update({ status: by === ROLES.DOCTOR ? SLOT_STATUS.BLOCKED : SLOT_STATUS.AVAILABLE }, { transaction: t });
+    // A doctor who cancels is unavailable then; a doctor running late cannot take a new patient then either.
+    const keepClosed = by === ROLES.DOCTOR || insideLateWindow(appt.doctor, appt.startAt);
+    if (slot) await slot.update({ status: keepClosed ? SLOT_STATUS.BLOCKED : SLOT_STATUS.AVAILABLE }, { transaction: t });
+    if (slot && !keepClosed) t.afterCommit(() => waitlist.announce(slot.doctorId, [slot]));
   }
   await reminders.cancelPending(appt.id, t);
 
@@ -397,6 +435,23 @@ async function savePrescription(actor, id, data) {
   });
 }
 
+/** The patient rates a completed visit (1-5 stars, optional comment). Saving again edits the review. */
+async function saveReview(actor, id, { rating, comment }) {
+  const appt = await Appointment.findByPk(id, { include: [doctorInclude] });
+  if (!appt || appt.userId !== actor.id) throw AppError.notFound('Appointment not found');
+  if (appt.status !== S.COMPLETED) throw AppError.rule('You can review a visit once it is completed', 'NOT_COMPLETED');
+  const existing = await Review.findOne({ where: { appointmentId: appt.id } });
+  if (existing) return existing.update({ rating, comment: comment ?? null });
+  const review = await Review.create({ appointmentId: appt.id, doctorId: appt.doctorId, userId: actor.id, rating, comment: comment ?? null });
+  await notify(appt.doctor.userId, {
+    type: 'review_added',
+    title: 'New patient review',
+    message: `${actor.name.split(' ')[0]} rated the visit on ${formatDateTime(appt.startAt)} ${rating} out of 5.`,
+    appointmentId: appt.id
+  });
+  return review;
+}
+
 /* -------------------------------------------------------------------- reads */
 
 function scopeWhere(actor) {
@@ -437,10 +492,206 @@ async function list(actor, query) {
 }
 
 async function getById(actor, id) {
-  const appt = await Appointment.findByPk(id, { include: [patientInclude, doctorInclude, { model: Prescription, as: 'prescription' }] });
+  const appt = await Appointment.findByPk(id, {
+    include: [patientInclude, doctorInclude, { model: Prescription, as: 'prescription' }, { model: Review, as: 'review', attributes: ['id', 'rating', 'comment', 'createdAt'] }]
+  });
   if (!appt) throw AppError.notFound('Appointment not found');
   assertParticipant(appt, actor);
   return present(appt, actor);
+}
+
+/* --------------------------------------------------- doctor cannot attend */
+
+/** The doctor's next free times this patient could take (for the "Can't attend" picker). */
+async function unavailableOptions(actor, id) {
+  const appt = await Appointment.findByPk(id);
+  if (!appt || appt.doctorId !== actor.doctorProfile?.id) throw AppError.notFound('Appointment not found');
+  const candidates = await Slot.findAll({
+    where: { doctorId: appt.doctorId, status: SLOT_STATUS.AVAILABLE, startAt: { [Op.gt]: new Date() } },
+    order: [['startAt', 'ASC']],
+    limit: 30
+  });
+  const out = [];
+  for (const s of candidates) {
+    if (out.length >= 8) break;
+    if (!(await findUserClash(appt.userId, s.startAt, s.endAt, undefined, appt.id))) out.push({ id: s.id, startAt: s.startAt, endAt: s.endAt });
+  }
+  return out;
+}
+
+/**
+ * The doctor cannot see the patient (a critical emergency, for example) — before or after the start.
+ * The visit moves to the slot the doctor picked, or to their next free slot (the patient gets first
+ * pick of it), at the same price. With no free slot left it is cancelled as "doctor unavailable",
+ * never as a no-show. The patient may then accept, choose another time or cancel without the 24-hour lock.
+ */
+async function doctorUnavailable(actor, id, { reason, slotId }) {
+  try {
+    return await sequelize.transaction(async (t) => {
+      const appt = await Appointment.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE });
+      if (!appt || appt.doctorId !== actor.doctorProfile?.id) throw AppError.notFound('Appointment not found');
+      await lockPatient(appt.userId, t);
+      if (!ACTIVE.includes(appt.status)) throw AppError.conflict(`This appointment is already ${appt.status.replace('_', ' ')}`, 'INVALID_STATUS');
+      appt.doctor = await DoctorProfile.findByPk(appt.doctorId, { include: [{ model: User, as: 'user' }], transaction: t });
+      appt.patient = await User.findByPk(appt.userId, { transaction: t });
+
+      let slot = null;
+      if (slotId) {
+        slot = await Slot.findByPk(slotId, { transaction: t, lock: t.LOCK.UPDATE });
+        if (!slot || slot.doctorId !== appt.doctorId) throw AppError.badRequest('Choose one of your own free slots', 'INVALID_SLOT');
+        if (slot.status !== SLOT_STATUS.AVAILABLE || ms(slot.startAt) <= Date.now()) throw AppError.conflict('That slot is no longer free. Pick another one.', 'SLOT_UNAVAILABLE');
+        if (await findUserClash(appt.userId, slot.startAt, slot.endAt, t, appt.id)) throw AppError.conflict('The patient has another appointment at that time', 'PATIENT_OVERLAP');
+      } else {
+        const next = await findNextSlot({ doctorId: appt.doctorId, after: new Date(), userId: appt.userId, excludeAppointmentId: appt.id, transaction: t });
+        slot = next && (await Slot.findByPk(next.id, { transaction: t, lock: t.LOCK.UPDATE }));
+        if (slot && slot.status !== SLOT_STATUS.AVAILABLE) slot = null;
+      }
+
+      if (!slot) {
+        await cancelInTransaction(appt, { by: ROLES.DOCTOR, reason: `Doctor unavailable: ${reason}. No other free time was available.` }, t);
+        return { outcome: 'cancelled' };
+      }
+
+      const previous = await moveToSlot(appt, slot, t, { by: 'doctor' });
+      await appt.update({ doctorMoveReason: reason }, { transaction: t });
+      await notify(
+        appt.userId,
+        {
+          type: 'doctor_moved',
+          title: 'Your doctor had to move your visit',
+          message: `${drName(appt.doctor)} could not see you at ${formatDateTime(previous)} (${reason}). Your visit is now at ${formatDateTime(
+            slot.startAt
+          )}, same price. Open the appointment to accept it, choose another time or cancel.`,
+          appointmentId: appt.id
+        },
+        t
+      );
+      return { outcome: 'moved', startAt: slot.startAt };
+    });
+  } catch (err) {
+    if (isUniqueSlotViolation(err)) throw slotTakenError();
+    throw err;
+  }
+}
+
+/* ---------------------------------------------------------------- walk-ins */
+
+const normalisePhone = (p) => p.replace(/[\s-]/g, '');
+
+/**
+ * Finds the patient by e-mail, then by phone, or creates an account for them. A created account
+ * gets an unusable random password; with a real e-mail the patient claims it via "Forgot password".
+ */
+async function findOrCreateWalkInPatient({ name, phone, email }, t) {
+  let patient = email ? await User.findOne({ where: { email }, transaction: t }) : null;
+  if (!patient) {
+    // Compare phone numbers without spaces or dashes ("+91 98765 43210" = "+919876543210").
+    patient = await User.findOne({
+      where: sequelize.where(sequelize.fn('regexp_replace', sequelize.col('phone'), '[[:space:]-]', '', 'g'), normalisePhone(phone)),
+      transaction: t
+    });
+  }
+  if (patient) {
+    if (patient.role !== ROLES.USER) throw AppError.conflict('This e-mail or phone belongs to a staff account, not a patient', 'NOT_A_PATIENT');
+    if (!patient.isActive) throw AppError.conflict('This patient account is deactivated. Ask the admin to reactivate it.', 'ACCOUNT_INACTIVE');
+    return { patient, created: false };
+  }
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+  patient = await User.create(
+    { name, phone, email: email || `walkin-${crypto.randomUUID()}@patients.invalid`, passwordHash, role: ROLES.USER },
+    { transaction: t }
+  );
+  return { patient, created: true };
+}
+
+/**
+ * A patient seen without a booking. The visit starts now (so it can be completed and prescribed
+ * at once), has no slot, and costs the doctor's fee only. Booked appointments that overlap are
+ * returned so the doctor can tell those patients about a delay.
+ */
+async function recordWalkIn(actor, { name, phone, email, reason, isEmergency, fee, durationMinutes }) {
+  const profile = actor.doctorProfile;
+  const start = new Date();
+  const end = new Date(start.getTime() + durationMinutes * 60000);
+  const doctorFee = Math.round(Number(fee ?? profile.fee) * 100) / 100;
+
+  const { appt, created } = await sequelize.transaction(async (t) => {
+    const { patient, created: isNew } = await findOrCreateWalkInPatient({ name, phone, email }, t);
+    const a = await Appointment.create(
+      {
+        userId: patient.id,
+        doctorId: profile.id,
+        slotId: null,
+        startAt: start,
+        endAt: end,
+        status: S.CONFIRMED,
+        confirmedAt: start,
+        reason: reason || null,
+        visitType: VISIT_TYPES.WALK_IN,
+        isEmergency,
+        doctorFee,
+        commission: 0,
+        totalFee: doctorFee
+      },
+      { transaction: t }
+    );
+    if (!isNew) {
+      await notify(
+        patient.id,
+        { type: 'walk_in_recorded', title: 'Clinic visit recorded', message: `Your visit with Dr. ${actor.name} on ${formatDateTime(start)} has been recorded.`, appointmentId: a.id },
+        t
+      );
+    }
+    return { appt: a, created: isNew };
+  });
+
+  // Booked patients whose time overlaps the walk-in, or starts within the next hour after it.
+  const affected = await Appointment.findAll({
+    where: {
+      doctorId: profile.id,
+      visitType: VISIT_TYPES.BOOKED,
+      status: { [Op.in]: ACTIVE },
+      startAt: { [Op.lt]: new Date(end.getTime() + HOUR), [Op.gte]: new Date(start.getTime() - 30 * 60000) },
+      endAt: { [Op.gt]: start }
+    },
+    include: [{ model: User, as: 'patient', attributes: ['id', 'name'] }],
+    order: [['startAt', 'ASC']]
+  });
+  return {
+    appointmentId: appt.id,
+    patientCreated: created,
+    affected: affected.map((a) => ({ id: a.id, startAt: a.startAt, patientName: a.patient?.name }))
+  };
+}
+
+/** Tells booked patients the doctor is running late because of a walk-in / emergency. */
+async function notifyDelay(actor, { appointmentIds, minutes }) {
+  const appts = await Appointment.findAll({
+    where: { id: appointmentIds, doctorId: actor.doctorProfile.id, status: { [Op.in]: ACTIVE } }
+  });
+  if (appts.length) {
+    // Behind schedule until the last delayed visit's end plus the delay (never shortens an existing window).
+    const lastEnd = Math.max(...appts.map((a) => ms(a.endAt)));
+    const until = new Date(lastEnd + minutes * 60000);
+    const current = actor.doctorProfile.runningLateUntil ? ms(actor.doctorProfile.runningLateUntil) : 0;
+    await actor.doctorProfile.update({ runningLateMinutes: minutes, runningLateUntil: new Date(Math.max(until.getTime(), current)) });
+  }
+  for (const a of appts) {
+    await a.update({ delayNotifiedAt: new Date(), delayMinutes: minutes });
+    await notify(a.userId, {
+      type: 'doctor_delayed',
+      title: 'Your doctor is running late',
+      message: `Dr. ${actor.name} is attending an emergency. Your appointment at ${formatDateTime(a.startAt)} may start about ${minutes} minutes late. Your booking is kept; if the delay does not suit you, you can move or cancel it in the app.`,
+      appointmentId: a.id
+    });
+  }
+  return { notified: appts.length };
+}
+
+/** The doctor is back on schedule. Slots blocked during the delay stay blocked until reopened in Availability. */
+async function caughtUp(actor) {
+  await actor.doctorProfile.update({ runningLateMinutes: null, runningLateUntil: null });
+  return actor.doctorProfile;
 }
 
 /* ---------------------------------------------------------------- scheduler */
@@ -539,6 +790,12 @@ module.exports = {
   complete,
   markNoShow,
   savePrescription,
+  saveReview,
+  recordWalkIn,
+  doctorUnavailable,
+  unavailableOptions,
+  notifyDelay,
+  caughtUp,
   list,
   getById,
   processUnconfirmed,

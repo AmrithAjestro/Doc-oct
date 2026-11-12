@@ -18,12 +18,12 @@ export default function FilePicker({ file, onChange, accept, hint, error }) {
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && input.current?.click()}
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
-        className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed px-4 py-4 transition-colors hover:border-indigo-400 hover:bg-accent-soft ${
+        className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed px-4 py-4 transition-colors hover:border-brand-400 hover:bg-accent-soft ${
           error ? 'border-rose-400' : 'border-line-strong'
         }`}
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-subtle">
-          {file ? <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" /> : <UploadCloud className="h-5 w-5 text-ink-3" />}
+          {file ? <FileText className="h-5 w-5 text-brand-600 dark:text-brand-400" /> : <UploadCloud className="h-5 w-5 text-ink-3" />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-bold text-ink">{file ? file.name : 'Click to choose or drop a file here'}</div>

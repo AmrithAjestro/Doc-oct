@@ -44,6 +44,7 @@ export function AuthProvider({ children }) {
       user,
       loading,
       setUser,
+      startSession,
       refresh,
       logout,
       login: async (email, password) => startSession(unwrap(await api.post('/auth/login', { email, password }))),

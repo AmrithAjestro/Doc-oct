@@ -12,6 +12,11 @@ module.exports = (sequelize) => {
     toJSON() {
       const values = { ...this.get() };
       delete values.passwordHash;
+      delete values.resetTokenHash;
+      delete values.resetTokenExpiresAt;
+      delete values.tokenVersion;
+      // Walk-in patients without an e-mail get an internal placeholder address; never show it.
+      if (typeof values.email === 'string' && values.email.endsWith('@patients.invalid')) values.email = null;
       return values;
     }
   }
@@ -31,15 +36,19 @@ module.exports = (sequelize) => {
       phone: { type: DataTypes.STRING(20) },
       passwordHash: { type: DataTypes.STRING, allowNull: false },
       role: { type: DataTypes.ENUM(...Object.values(ROLES)), allowNull: false, defaultValue: ROLES.USER },
-      isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true }
+      isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+      // Bumped to revoke every login token issued so far (password change/reset, sign out everywhere).
+      tokenVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      resetTokenHash: { type: DataTypes.STRING(64) },
+      resetTokenExpiresAt: { type: DataTypes.DATE }
     },
     {
       sequelize,
       modelName: 'User',
       tableName: 'users',
       underscored: true,
-      defaultScope: { attributes: { exclude: ['passwordHash'] } },
-      scopes: { withPassword: { attributes: { include: ['passwordHash'] } } }
+      defaultScope: { attributes: { exclude: ['passwordHash', 'resetTokenHash', 'resetTokenExpiresAt'] } },
+      scopes: { withPassword: { attributes: { include: ['passwordHash', 'resetTokenHash', 'resetTokenExpiresAt'] } } }
     }
   );
 

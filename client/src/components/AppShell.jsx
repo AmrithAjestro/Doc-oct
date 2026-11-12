@@ -1,9 +1,7 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { Suspense, createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Menu } from 'lucide-react';
-import Sidebar from './Sidebar';
-import Brand from './Brand';
-import { IconButton, askConfirm } from '../lib/ui';
+import TopNav from './TopNav';
+import { askConfirm, Spinner } from '../lib/ui';
 import { useAuth } from '../context/AuthContext';
 import { useDarkMode } from '../lib/theme';
 import api, { unwrap } from '../lib/api';
@@ -19,8 +17,6 @@ export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isDarkMode, setIsDarkMode] = useDarkMode();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [counts, setCounts] = useState({ unread: 0, pendingDoctors: 0 });
 
   const refreshCounts = useCallback(async () => {
@@ -58,27 +54,13 @@ export default function AppShell() {
   return (
     <CountsContext.Provider value={{ ...counts, refreshCounts }}>
       <div className="min-h-screen bg-canvas text-ink">
-        <Sidebar
-          user={user}
-          counts={counts}
-          isCollapsed={isCollapsed}
-          setIsCollapsed={setIsCollapsed}
-          mobileOpen={mobileNavOpen}
-          onCloseMobile={() => setMobileNavOpen(false)}
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
-          onLogout={handleLogout}
-        />
-        <div className={`flex min-h-screen flex-col transition-[margin] duration-300 ${isCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-surface px-4 lg:hidden">
-            <IconButton icon={Menu} label="Open menu" onClick={() => setMobileNavOpen(true)} className="-ml-1.5" />
-            <Brand />
-          </header>
-          {/* Each page carries its own title and actions. */}
-          <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8">
+        <TopNav user={user} counts={counts} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} onLogout={handleLogout} />
+        {/* Each page carries its own title and actions. */}
+        <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          <Suspense fallback={<Spinner />}>
             <Outlet />
-          </main>
-        </div>
+          </Suspense>
+        </main>
       </div>
     </CountsContext.Provider>
   );

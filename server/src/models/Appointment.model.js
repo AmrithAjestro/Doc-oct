@@ -1,5 +1,5 @@
 const { DataTypes, Model } = require('sequelize');
-const { APPOINTMENT_STATUS } = require('../config/constants');
+const { APPOINTMENT_STATUS, VISIT_TYPES } = require('../config/constants');
 
 const money = (field) => ({
   type: DataTypes.DECIMAL(10, 2),
@@ -18,6 +18,7 @@ module.exports = (sequelize) => {
       Appointment.belongsTo(models.Slot, { as: 'slot', foreignKey: 'slotId' });
       Appointment.hasOne(models.Prescription, { as: 'prescription', foreignKey: 'appointmentId' });
       Appointment.hasMany(models.Reminder, { as: 'reminders', foreignKey: 'appointmentId' });
+      Appointment.hasOne(models.Review, { as: 'review', foreignKey: 'appointmentId' });
     }
   }
 
@@ -36,6 +37,15 @@ module.exports = (sequelize) => {
         defaultValue: APPOINTMENT_STATUS.PENDING_CONFIRMATION
       },
       reason: { type: DataTypes.TEXT },
+      // walk_in: came to the clinic without booking; no slot, starts at once, no platform commission.
+      visitType: { type: DataTypes.ENUM(...Object.values(VISIT_TYPES)), allowNull: false, defaultValue: VISIT_TYPES.BOOKED },
+      isEmergency: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+      // Set when the doctor could not attend and moved the visit; the patient may accept, move or cancel freely.
+      awaitingPatientReply: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+      doctorMoveReason: { type: DataTypes.TEXT },
+      // The doctor said they are running late; the patient may then cancel or move freely.
+      delayNotifiedAt: { type: DataTypes.DATE },
+      delayMinutes: { type: DataTypes.INTEGER },
       // Price snapshot taken at booking time.
       doctorFee: money('doctorFee'),
       commission: money('commission'),

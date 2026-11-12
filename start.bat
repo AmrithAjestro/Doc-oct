@@ -61,8 +61,21 @@ start "Backend - API" cmd /k "cd /d "%~dp0server" && npm run dev"
 echo Starting Frontend (http://localhost:5173) ...
 start "Frontend - React" cmd /k "cd /d "%~dp0client" && npm run dev"
 
-rem Give Vite a few seconds, then open the app.
-timeout /t 6 /nobreak >nul
+rem Wait (up to 60 s) until the API answers, so the first page load does not fail.
+set /a tries=0
+:waitapi
+curl -s -o nul http://localhost:5000/api/health && goto apiup
+set /a tries+=1
+if %tries% geq 30 (
+  echo [!] The API did not start. Check the "Backend - API" window for the error.
+  goto openapp
+)
+timeout /t 2 /nobreak >nul
+goto waitapi
+:apiup
+echo API is up.
+:openapp
+timeout /t 2 /nobreak >nul
 start "" http://localhost:5173
 
 echo.

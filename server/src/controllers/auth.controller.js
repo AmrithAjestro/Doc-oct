@@ -11,7 +11,16 @@ exports.me = async (req, res) => ok(res, req.user);
 
 exports.updateMe = async (req, res) => ok(res, await authService.updateMe(req.user, req.body));
 
-exports.changePassword = async (req, res) => {
-  await authService.changePassword(req.user.id, req.body);
-  ok(res, { message: 'Password updated' });
+exports.changePassword = async (req, res) => ok(res, await authService.changePassword(req.user.id, req.body));
+
+exports.logoutEverywhere = async (req, res) => {
+  await authService.logoutEverywhere(req.user);
+  ok(res, { message: 'Signed out on every device' });
 };
+
+exports.forgotPassword = async (req, res) => {
+  await authService.requestPasswordReset(req.body);
+  ok(res, { message: 'If an account exists for this e-mail, a reset link has been sent.' });
+};
+
+exports.resetPassword = async (req, res) => ok(res, await authService.resetPassword(req.body));

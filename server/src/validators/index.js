@@ -39,7 +39,9 @@ const doctorProfileFields = {
   experienceYears: z.coerce.number().int().min(0).max(70).default(0),
   fee: money,
   bio: optionalText(2000),
-  clinicAddress: optionalText(255)
+  clinicAddress: optionalText(255),
+  languages: optionalText(200),
+  clinicHours: optionalText(200)
 };
 
 const medicine = z.object({
@@ -58,7 +60,9 @@ module.exports = {
     registerDoctor: z.object({ name, email, phone, password, ...doctorProfileFields }),
     login: z.object({ email, password: z.string().min(1, 'Password is required') }),
     updateMe: z.object({ name: name.optional(), phone }),
-    changePassword: z.object({ currentPassword: z.string().min(1), newPassword: password })
+    changePassword: z.object({ currentPassword: z.string().min(1), newPassword: password }),
+    forgotPassword: z.object({ email }),
+    resetPassword: z.object({ token: z.string().regex(/^[a-f0-9]{64}$/, 'Invalid reset link'), password })
   },
 
   doctor: {
@@ -88,6 +92,19 @@ module.exports = {
     }),
     book: z.object({ slotId: uuid, reason: optionalText(500) }),
     reschedule: z.object({ slotId: uuid }),
+    walkIn: z
+      .object({
+        name,
+        phone: z.string().trim().regex(/^\+?[0-9\s-]{7,20}$/, 'Enter a valid phone number'),
+        email: email.optional().or(z.literal('').transform(() => undefined)),
+        reason: optionalText(500),
+        isEmergency: z.boolean().default(true),
+        fee: money.optional(),
+        durationMinutes: z.coerce.number().int().min(10).max(240).default(30)
+      }),
+    doctorUnavailable: z.object({ reason: trimmed(300).min(3, 'Tell the patient why'), slotId: uuid.optional().nullable() }),
+    notifyDelay: z.object({ appointmentIds: z.array(uuid).min(1).max(50), minutes: z.coerce.number().int().min(5).max(240) }),
+    review: z.object({ rating: z.coerce.number().int().min(1, 'Choose 1 to 5 stars').max(5), comment: optionalText(1000) }),
     cancel: z.object({ reason: optionalText(300) }),
     complete: z.object({ notes: optionalText(2000) }),
     prescription: z.object({
@@ -102,6 +119,8 @@ module.exports = {
         .or(z.literal('').transform(() => null))
     }).refine((v) => v.diagnosis || v.medicines.length || v.advice, 'Add a diagnosis, a medicine or advice')
   },
+
+  waitlist: { join: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional().nullable() }) },
 
   notification: { list: z.object({ unread: z.enum(['true', 'false']).optional(), ...pagination }) },
 

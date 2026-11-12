@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { Badge, Button } from '../lib/ui';
 import { APPOINTMENT_STATUS, DOCTOR_STATUS, money } from '../lib/format';
 import { useBranding } from '../context/BrandingContext';
+import { assetUrl } from '../lib/api';
 
 export function AppointmentStatusBadge({ status }) {
   const s = APPOINTMENT_STATUS[status] || { label: status, tone: 'neutral' };
@@ -90,14 +91,52 @@ export function Notice({ tone = 'info', icon: Icon, title, children, action, cla
   );
 }
 
-export function Avatar({ name, size = 'md' }) {
+export function Avatar({ name, size = 'md', photoUrl }) {
   const initials =
     (name || '?')
+      .replace(/^dr\.?\s+/i, '')
       .split(' ')
       .filter(Boolean)
       .slice(0, 2)
       .map((w) => w[0].toUpperCase())
       .join('') || '?';
-  const box = size === 'lg' ? 'h-14 w-14 text-lg' : size === 'sm' ? 'h-8 w-8 text-[11px]' : 'h-11 w-11 text-sm';
-  return <div className={`flex shrink-0 items-center justify-center rounded-2xl bg-accent-soft font-bold text-indigo-700 dark:text-indigo-300 ${box}`}>{initials}</div>;
+  const box = size === 'lg' ? 'h-20 w-20 text-[22px]' : size === 'sm' ? 'h-8 w-8 text-[11px]' : 'h-11 w-11 text-sm';
+  if (photoUrl) return <img src={assetUrl(photoUrl)} alt="" className={`shrink-0 rounded-full object-cover ${box}`} />;
+  return <div className={`flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold text-brand-700 dark:text-brand-300 ${box}`}>{initials}</div>;
+}
+
+/** 1-5 stars, read-only or as an input (onChange). */
+export function Stars({ value = 0, onChange, size = 'md' }) {
+  const box = size === 'lg' ? 'h-7 w-7' : 'h-4 w-4';
+  return (
+    <span className="inline-flex items-center gap-0.5" role={onChange ? 'radiogroup' : 'img'} aria-label={onChange ? 'Rating' : `${value} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((n) => {
+        const on = n <= Math.round(value);
+        const star = (
+          <svg viewBox="0 0 20 20" className={`${box} ${on ? 'fill-amber-400' : 'fill-line-strong'}`} aria-hidden="true">
+            <path d="M10 1.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L10 14.9l-5.2 2.8 1-5.9L1.5 7.7l5.9-.8z" />
+          </svg>
+        );
+        return onChange ? (
+          <button key={n} type="button" role="radio" aria-checked={n === value} aria-label={`${n} star${n > 1 ? 's' : ''}`} onClick={() => onChange(n)} className="rounded p-0.5 hover:scale-110">
+            {star}
+          </button>
+        ) : (
+          <span key={n}>{star}</span>
+        );
+      })}
+    </span>
+  );
+}
+
+/** "4.8 (12 reviews)" or "No reviews yet". */
+export function RatingLine({ avg, count }) {
+  if (!count) return <span className="text-[13px] text-ink-3">No reviews yet</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[13.5px]">
+      <Stars value={avg} />
+      <b className="font-semibold text-ink">{Number(avg).toFixed(1)}</b>
+      <span className="text-ink-2">({count} {count === 1 ? 'review' : 'reviews'})</span>
+    </span>
+  );
 }

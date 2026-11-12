@@ -11,7 +11,9 @@ const models = {
   Prescription: require('./Prescription.model')(sequelize),
   Notification: require('./Notification.model')(sequelize),
   Reminder: require('./Reminder.model')(sequelize),
-  Setting: require('./Setting.model')(sequelize)
+  Setting: require('./Setting.model')(sequelize),
+  Review: require('./Review.model')(sequelize),
+  WaitlistEntry: require('./WaitlistEntry.model')(sequelize)
 };
 
 Object.values(models).forEach((model) => model.associate?.(models));

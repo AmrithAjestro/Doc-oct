@@ -3,57 +3,58 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   Selsolve design tokens — kept identical to the POS app so both read as one
-   product. Tailwind exposes them as text-ink / bg-surface / border-line / …
+   Clinical blue theme: cool white / neutral slate, one blue accent, no gradients. Tailwind exposes them as text-ink / bg-surface / border-line / …
    (see tailwind.config.js).
    ========================================================================== */
 
 @layer base {
   :root {
-    --bg-main: #f6f7fb;
-    --bg-subtle: #eef1f7;
+    color-scheme: light;
+    --bg-main: #f5f7fb;
+    --bg-subtle: #eef2f8;
     --bg-surface: #ffffff;
     --surface: #ffffff;
     --surface-raised: #ffffff;
-    --border: #e3e8f0;
-    --border-strong: #cdd5e3;
-    --text-primary: #0d1526;
-    --text-secondary: #5a6579;
-    --text-muted: #8a94a6;
-    --accent: #4f46e5;
-    --accent-soft: #eef2ff;
-    --positive: #059669;
-    --negative: #e11d48;
-    --shadow-sm: 0 1px 2px rgba(13, 21, 38, 0.06);
-    --shadow-md: 0 4px 16px -4px rgba(13, 21, 38, 0.1);
-    --shadow-lg: 0 24px 48px -20px rgba(13, 21, 38, 0.28);
+    --border: #e1e7f0;
+    --border-strong: #c8d2e1;
+    --text-primary: #0f172a;
+    --text-secondary: #526075;
+    --text-muted: #8391a7;
+    --accent: #2563eb;
+    --accent-soft: #e8effd;
+    --positive: #15803d;
+    --negative: #dc2626;
+    --shadow-sm: none;
+    --shadow-md: 0 2px 6px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 18px 40px -18px rgba(15, 23, 42, 0.28);
   }
 
   .dark {
-    --bg-main: #070b16;
-    --bg-subtle: #0c1222;
-    --bg-surface: #0f1729;
-    --surface: #0f1729;
-    --surface-raised: #141d33;
-    --border: #1e2a44;
-    --border-strong: #2b3a5c;
-    --text-primary: #eef2f9;
-    --text-secondary: #97a3ba;
-    --text-muted: #6b7891;
-    --accent: #818cf8;
-    --accent-soft: #1c2445;
-    --positive: #34d399;
-    --negative: #fb7185;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 20px -6px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 28px 60px -24px rgba(0, 0, 0, 0.8);
+    color-scheme: dark;
+    --bg-main: #0b0f17;
+    --bg-subtle: #1b2330;
+    --bg-surface: #141a24;
+    --surface: #141a24;
+    --surface-raised: #1b2330;
+    --border: #263042;
+    --border-strong: #36435a;
+    --text-primary: #e6eaf2;
+    --text-secondary: #a3adbf;
+    --text-muted: #77839a;
+    --accent: #6ea0ff;
+    --accent-soft: #18264a;
+    --positive: #4ade80;
+    --negative: #f87171;
+    --shadow-sm: none;
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 24px 50px -20px rgba(0, 0, 0, 0.75);
   }
 
   body {
     background-color: var(--bg-main);
     color: var(--text-primary);
-    @apply font-sans antialiased min-h-screen transition-colors duration-200 selection:bg-indigo-500 selection:text-white;
-    font-feature-settings: 'cv02', 'cv03', 'cv04';
+    @apply font-sans antialiased min-h-screen transition-colors duration-200 selection:bg-brand-600 selection:text-white;
+    font-size: 15px;
   }
 
   /* Counts and amounts must line up column-to-column. */
@@ -95,8 +96,8 @@
   }
 
   .field-input {
-    @apply w-full rounded-xl px-3 py-2 text-[13px] font-medium transition-colors;
-    background: var(--bg-subtle);
+    @apply w-full rounded-xl px-3.5 py-2.5 text-[14px] font-medium transition-colors;
+    background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text-primary);
   }
@@ -108,7 +109,7 @@
   .field-input:focus {
     outline: none;
     border-color: var(--accent);
-    background: var(--surface);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   .field-input:disabled {
@@ -117,12 +118,12 @@
   }
 
   .label-eyebrow {
-    @apply text-[10px] font-bold uppercase tracking-[0.09em];
+    @apply text-[12px] font-semibold;
     color: var(--text-muted);
   }
 
   .ledger-table thead th {
-    @apply sticky top-0 z-10 py-2.5 px-3 text-left text-[10px] font-bold uppercase tracking-[0.07em];
+    @apply sticky top-0 z-10 py-2.5 px-3 text-left text-[12px] font-semibold;
     background: var(--bg-subtle);
     color: var(--text-muted);
     border-bottom: 1px solid var(--border);
@@ -151,8 +152,7 @@
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   .card-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
   }
 }
 

@@ -9,10 +9,16 @@ exports.list = async (req, res) => {
 exports.specializations = async (req, res) => ok(res, await doctorService.specializations());
 exports.get = async (req, res) => ok(res, await doctorService.getPublic(req.params.id));
 exports.availableSlots = async (req, res) => ok(res, await doctorService.availableSlots(req.params.id, req.query));
+exports.reviews = async (req, res) => {
+  const { rows, meta } = await doctorService.reviews(req.params.id, req.query);
+  ok(res, rows, { meta });
+};
 
 /* signed-in doctor */
 exports.myProfile = async (req, res) => ok(res, req.user.doctorProfile);
 exports.updateProfile = async (req, res) => ok(res, await doctorService.updateProfile(req.user.doctorProfile, req.body));
+exports.updatePhoto = async (req, res) => ok(res, await doctorService.updatePhoto(req.user.doctorProfile, req.file));
+exports.removePhoto = async (req, res) => ok(res, await doctorService.removePhoto(req.user.doctorProfile));
 exports.replaceCertificate = async (req, res) => ok(res, await doctorService.replaceCertificate(req.user.doctorProfile, req.file));
 exports.mySlots = async (req, res) => ok(res, await doctorService.listOwnSlots(req.user.doctorProfile, req.query));
 exports.createSlots = async (req, res) => {

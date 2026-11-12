@@ -4,16 +4,59 @@ import { Search, CalendarClock, ShieldAlert, ShieldX, ArrowRight, CalendarDays, 
 import { PageHeader, Panel, SectionHeader, StatTile, Button, EmptyState, Spinner, DataTable, Badge } from '../lib/ui';
 import { AppointmentStatusBadge, Avatar, ErrorBanner, Notice } from '../components/common';
 import AppointmentActions from '../components/AppointmentActions';
+import WalkInButton, { VisitBadges } from '../components/WalkIn';
 import { useAsync } from '../lib/useAsync';
 import { useAuth } from '../context/AuthContext';
 import { useBranding } from '../context/BrandingContext';
-import api from '../lib/api';
+import api, { errorMessage } from '../lib/api';
+import { toast } from '../lib/toast';
 import { APPOINTMENT_STATUS, dateTime, doctorName, money, relative, timeOnly } from '../lib/format';
 
 const greeting = () => {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
+
+/** The single most useful thing on the page: the next visit, with its actions. */
+function NextUp({ a, who, title, onChange }) {
+  const navigate = useNavigate();
+  const name = who === 'doctor' ? doctorName(a.doctor) : a.patient?.name;
+  return (
+    <Panel className="mb-5 border-brand-200 dark:border-brand-900">
+      <div className="flex flex-col gap-5 md:flex-row md:items-center">
+        <button type="button" onClick={() => navigate(`/appointments/${a.id}`)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
+          <Avatar name={who === 'doctor' ? a.doctor?.user?.name : name} photoUrl={who === 'doctor' ? a.doctor?.photoUrl : undefined} size="lg" />
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium text-brand-700 dark:text-brand-300">{title}</div>
+            <div className="mt-0.5 text-[22px] font-bold leading-tight tracking-tight text-ink">{dateTime(a.startAt)}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[14px] text-ink-2">
+              <span className="font-medium text-ink">{name}</span>
+              {who === 'doctor' && a.doctor?.specialization && <span>{a.doctor.specialization}</span>}
+              <VisitBadges a={a} />
+              <AppointmentStatusBadge status={a.status} />
+              <span>{relative(a.startAt)}</span>
+            </div>
+          </div>
+        </button>
+        <AppointmentActions appointment={a} onChange={onChange} size="md" />
+      </div>
+    </Panel>
+  );
+}
+
+/** A compact row of figures instead of a wall of tiles. */
+function Facts({ items }) {
+  return (
+    <div className="surface mb-6 grid grid-cols-2 divide-line rounded-[20px] sm:flex sm:divide-x">
+      {items.map((it) => (
+        <div key={it.label} className="flex-1 px-5 py-4">
+          <div className="text-[13px] text-ink-2">{it.label}</div>
+          <div className="tabular mt-0.5 text-[22px] font-semibold text-ink">{it.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function AppointmentRow({ a, who, onChange }) {
   const navigate = useNavigate();
@@ -22,15 +65,51 @@ function AppointmentRow({ a, who, onChange }) {
       <button type="button" onClick={() => navigate(`/appointments/${a.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <Avatar name={who === 'doctor' ? a.doctor?.user?.name : a.patient?.name} size="sm" />
         <div className="min-w-0">
-          <div className="truncate text-[13px] font-bold text-ink">{who === 'doctor' ? doctorName(a.doctor) : a.patient?.name}</div>
-          <div className="text-[11px] text-ink-2">
-            {dateTime(a.startAt)} · {relative(a.startAt)}
+          <div className="truncate text-[14.5px] font-semibold text-ink">{who === 'doctor' ? doctorName(a.doctor) : a.patient?.name}</div>
+          <div className="text-[13px] text-ink-2">
+            {dateTime(a.startAt)}, {relative(a.startAt)}
           </div>
         </div>
-        <AppointmentStatusBadge status={a.status} />
+        <span className="flex shrink-0 flex-wrap gap-1.5">
+          <VisitBadges a={a} />
+          <AppointmentStatusBadge status={a.status} />
+        </span>
       </button>
       <AppointmentActions appointment={a} onChange={onChange} showLockHint={false} />
     </div>
+  );
+}
+
+/** Shown to the doctor while they are behind schedule; slots freed meanwhile are kept closed. */
+function RunningLateBanner({ late }) {
+  const { refresh } = useAuth();
+  const [busy, setBusy] = React.useState(false);
+  const done = async () => {
+    setBusy(true);
+    try {
+      await api.post('/doctor/caught-up');
+      await refresh();
+      toast.success('Back on schedule. Reopen any blocked slots in Availability if you want them booked.');
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Notice
+      tone="warning"
+      icon={Clock}
+      className="mb-5"
+      title={`You are running about ${late.minutes} minutes late until ${timeOnly(late.until)}`}
+      action={
+        <Button size="sm" loading={busy} onClick={done}>
+          I've caught up
+        </Button>
+      }
+    >
+      Patients booking a time before then are warned. Slots that free up meanwhile stay blocked and the waitlist is not told; reopen them in Availability when you are ready.
+    </Notice>
   );
 }
 
@@ -57,16 +136,19 @@ function UserDashboard({ data, user, setData }) {
           Confirm before the deadline, or the booking is moved to the next free slot.
         </Notice>
       )}
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Upcoming" value={data.statusCounts.pending_confirmation + data.statusCounts.confirmed} tone="accent" />
-        <StatTile label="Completed visits" value={data.statusCounts.completed} tone="success" />
-        <StatTile label="Prescriptions" value={data.prescriptions} />
-        <StatTile label="Total spent" value={money(data.totalSpent, currency)} />
-      </div>
+      {data.upcoming[0] && <NextUp a={data.upcoming[0]} who="doctor" title="Your next visit" onChange={replace} />}
+      <Facts
+        items={[
+          { label: 'Upcoming', value: data.statusCounts.pending_confirmation + data.statusCounts.confirmed },
+          { label: 'Completed visits', value: data.statusCounts.completed },
+          { label: 'Prescriptions', value: data.prescriptions },
+          { label: 'Total spent', value: money(data.totalSpent, currency) }
+        ]}
+      />
       <Panel padded={false}>
         <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
           <SectionHeader title="Upcoming appointments" />
-          <Link to="/appointments" className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+          <Link to="/appointments" className="inline-flex items-center gap-1 text-[14px] font-medium text-brand-600 hover:underline dark:text-brand-400">
             View all <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -120,17 +202,20 @@ function DoctorDashboard({ data, user, setData }) {
     );
   }
   const replace = (u) => setData((d) => ({ ...d, today: d.today.map((x) => (x.id === u.id ? u : x)) }));
+  const late = user.doctorProfile?.runningLate;
+  const nextPatient = data.today.find((a) => ['pending_confirmation', 'confirmed'].includes(a.status) && new Date(a.endAt) > new Date());
   return (
     <>
       <PageHeader
         title={`${greeting()}, Dr. ${user.name.split(' ')[0]}`}
         subtitle="Today’s schedule at a glance."
         actions={
-          <Link to="/availability">
-            <Button variant="primary" icon={CalendarClock}>
-              Manage availability
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <WalkInButton />
+            <Link to="/availability">
+              <Button icon={CalendarClock}>Manage availability</Button>
+            </Link>
+          </div>
         }
       />
       {data.openSlots === 0 && (
@@ -138,13 +223,17 @@ function DoctorDashboard({ data, user, setData }) {
           You have no open slots — patients cannot book you until you add availability.
         </Notice>
       )}
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatTile label="Today" value={data.today.length} tone="accent" />
-        <StatTile label="Upcoming" value={data.upcomingCount} />
-        <StatTile label="Open slots" value={data.openSlots} />
-        <StatTile label="Patients seen" value={data.uniquePatients} tone="success" />
-        <StatTile label="Earnings" value={money(data.earnings, currency)} sub="Completed visits" />
-      </div>
+      {late && new Date(late.until) > new Date() && <RunningLateBanner late={late} />}
+      {nextPatient && <NextUp a={nextPatient} who="patient" title="Next patient" onChange={replace} />}
+      <Facts
+        items={[
+          { label: 'Today', value: data.today.length },
+          { label: 'Upcoming', value: data.upcomingCount },
+          { label: 'Open slots', value: data.openSlots },
+          { label: 'Patients seen', value: data.uniquePatients },
+          { label: 'Earnings', value: money(data.earnings, currency) }
+        ]}
+      />
       <Panel padded={false}>
         <div className="border-b border-line px-4 py-3.5">
           <SectionHeader title="Today" />
@@ -195,7 +284,7 @@ function AdminDashboard({ data }) {
             {Object.entries(APPOINTMENT_STATUS).map(([k, s]) => {
               const n = data.statusCounts[k] || 0;
               const pct = total ? Math.round((n / total) * 100) : 0;
-              const bar = { warning: 'bg-amber-500', accent: 'bg-indigo-500', success: 'bg-emerald-500', danger: 'bg-rose-500', neutral: 'bg-slate-400' }[s.tone];
+              const bar = { warning: 'bg-amber-500', accent: 'bg-brand-400', success: 'bg-green-600', danger: 'bg-rose-500', neutral: 'bg-slate-400' }[s.tone];
               return (
                 <div key={k}>
                   <div className="mb-1 flex justify-between text-xs">
@@ -213,7 +302,7 @@ function AdminDashboard({ data }) {
         <Panel padded={false}>
           <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
             <SectionHeader title="Doctors awaiting review" />
-            <Link to="/admin/doctors" className="text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+            <Link to="/admin/doctors" className="text-xs font-bold text-brand-600 hover:underline dark:text-brand-400">
               Open queue
             </Link>
           </div>
@@ -258,7 +347,7 @@ function AdminDashboard({ data }) {
 
 export default function DashboardPage() {
   const { user, refresh } = useAuth();
-  const { data, loading, error, reload, setData } = useAsync(() => api.get('/dashboard'), [user.role, user.doctorProfile?.status]);
+  const { data, loading, error, reload, setData } = useAsync(() => api.get('/dashboard'), [user.role, user.doctorProfile?.status], { live: true });
   // An admin may have approved/rejected this doctor since sign-in: pick up the new status (and menu).
   React.useEffect(() => {
     if (user.role === 'doctor' && data?.profileStatus && data.profileStatus !== user.doctorProfile?.status) refresh().catch(() => {});

@@ -43,6 +43,21 @@ exports.noShow = async (req, res) => {
   ok(res, await fresh(req, req.params.id));
 };
 
+exports.unavailableOptions = async (req, res) => ok(res, await appointmentService.unavailableOptions(req.user, req.params.id));
+exports.doctorUnavailable = async (req, res) => {
+  const result = await appointmentService.doctorUnavailable(req.user, req.params.id, req.body);
+  ok(res, { ...result, appointment: await fresh(req, req.params.id) });
+};
+
+exports.walkIn = async (req, res) => ok(res, await appointmentService.recordWalkIn(req.user, req.body), {}, 201);
+exports.notifyDelay = async (req, res) => ok(res, await appointmentService.notifyDelay(req.user, req.body));
+exports.caughtUp = async (req, res) => ok(res, await appointmentService.caughtUp(req.user));
+
+exports.review = async (req, res) => {
+  await appointmentService.saveReview(req.user, req.params.id, req.body);
+  ok(res, await fresh(req, req.params.id));
+};
+
 exports.savePrescription = async (req, res) => {
   await appointmentService.savePrescription(req.user, req.params.id, req.body);
   ok(res, await fresh(req, req.params.id));

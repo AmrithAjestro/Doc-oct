@@ -115,7 +115,7 @@ export default function RegisterDoctor() {
       </form>
       <p className="mt-6 text-center text-[13px] text-ink-2">
         Already registered?{' '}
-        <Link to="/login" className="font-bold text-indigo-600 hover:underline dark:text-indigo-400">
+        <Link to="/login" className="font-bold text-brand-600 hover:underline dark:text-brand-400">
           Sign in
         </Link>
       </p>

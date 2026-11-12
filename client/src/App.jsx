@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, Link } from 'react-router-dom';
 import { Compass } from 'lucide-react';
 import { ConfirmHost, Spinner, Button, EmptyState } from './lib/ui';
@@ -7,21 +7,24 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { BrandingProvider } from './context/BrandingContext';
 import { useDarkMode } from './lib/theme';
 import AppShell from './components/AppShell';
-import Landing from './pages/Landing';
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import RegisterDoctor from './pages/auth/RegisterDoctor';
-import DashboardPage from './pages/DashboardPage';
-import FindDoctors from './pages/patient/FindDoctors';
-import DoctorDetail from './pages/patient/DoctorDetail';
-import AppointmentsPage from './pages/AppointmentsPage';
-import AppointmentDetail from './pages/AppointmentDetail';
-import NotificationsPage from './pages/NotificationsPage';
-import AccountPage from './pages/AccountPage';
-import Availability from './pages/doctor/Availability';
-import AdminDoctors from './pages/admin/Doctors';
-import AdminUsers from './pages/admin/Users';
-import AdminSettings from './pages/admin/Settings';
+const Landing = lazy(() => import('./pages/Landing'));
+const Login = lazy(() => import('./pages/auth/Login'));
+const Register = lazy(() => import('./pages/auth/Register'));
+const RegisterDoctor = lazy(() => import('./pages/auth/RegisterDoctor'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const FindDoctors = lazy(() => import('./pages/patient/FindDoctors'));
+const DoctorDetail = lazy(() => import('./pages/patient/DoctorDetail'));
+const AppointmentsPage = lazy(() => import('./pages/AppointmentsPage'));
+const AppointmentDetail = lazy(() => import('./pages/AppointmentDetail'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
+const Availability = lazy(() => import('./pages/doctor/Availability'));
+const AdminDoctors = lazy(() => import('./pages/admin/Doctors'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+// Each page's code is downloaded the first time it is opened, which keeps the first load small.
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword').then((m) => ({ default: m.ForgotPassword })));
+const ResetPassword = lazy(() => import('./pages/auth/ForgotPassword').then((m) => ({ default: m.ResetPassword })));
 
 function FullPageSpinner() {
   return (
@@ -91,6 +94,8 @@ function AppRoutes() {
       <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
       <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />
       <Route path="/register/doctor" element={<GuestOnly><RegisterDoctor /></GuestOnly>} />
+      <Route path="/forgot-password" element={<GuestOnly><ForgotPassword /></GuestOnly>} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route path="/dashboard" element={<DashboardPage />} />
@@ -117,7 +122,9 @@ export default function App() {
         <AuthProvider>
           <ConfirmHost />
           <ToastHost />
-          <AppRoutes />
+          <Suspense fallback={<FullPageSpinner />}>
+            <AppRoutes />
+          </Suspense>
         </AuthProvider>
       </BrandingProvider>
     </BrowserRouter>

@@ -24,6 +24,8 @@ app.use(express.urlencoded({ extended: false, limit: '200kb' }));
 if (!config.IS_PRODUCTION) app.use(morgan('dev'));
 
 // Only branding is public. Certificates are served through an authorised route.
+// Doctor profile photos are public like the logo.
+app.use('/uploads/photos', express.static(path.join(config.UPLOAD_DIR, 'photos'), { maxAge: '7d', fallthrough: false }));
 app.use('/uploads/branding', express.static(path.join(config.UPLOAD_DIR, 'branding'), { maxAge: '7d', fallthrough: false }));
 
 app.use('/api', routes);

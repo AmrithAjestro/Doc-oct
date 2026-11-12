@@ -26,7 +26,8 @@ export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const { data, meta, loading, error, reload, setData } = useAsync(
     () => api.get('/notifications', { params: { unread: filter === 'unread' ? 'true' : undefined, page } }),
-    [filter, page]
+    [filter, page],
+    { live: true }
   );
 
   const markRead = async (n) => {
@@ -40,6 +41,7 @@ export default function NotificationsPage() {
     markRead(n);
     if (n.appointmentId) navigate(`/appointments/${n.appointmentId}`);
     else if (n.type === 'doctor_registered') navigate('/admin/doctors');
+    else if (n.type === 'waitlist_opening') navigate('/doctors');
   };
 
   const markAll = async () => {
@@ -90,13 +92,13 @@ export default function NotificationsPage() {
               return (
                 <li key={n.id}>
                   <button type="button" onClick={() => open(n)} className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-subtle">
-                    <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${n.readAt ? 'bg-subtle text-ink-3' : 'bg-accent-soft text-indigo-600 dark:text-indigo-300'}`}>
+                    <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${n.readAt ? 'bg-subtle text-ink-3' : 'bg-accent-soft text-brand-600 dark:text-brand-300'}`}>
                       <Icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
                         <span className={`truncate text-[13px] ${n.readAt ? 'font-semibold text-ink-2' : 'font-bold text-ink'}`}>{n.title}</span>
-                        {!n.readAt && <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" aria-label="Unread" />}
+                        {!n.readAt && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-600" aria-label="Unread" />}
                       </span>
                       <span className="mt-0.5 block text-[13px] leading-relaxed text-ink-2">{n.message}</span>
                       <span className="mt-1 block text-[11px] text-ink-3" title={dateTime(n.createdAt)}>

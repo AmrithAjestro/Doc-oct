@@ -1,12 +1,14 @@
 const { Op, fn, col, literal } = require('sequelize');
 const config = require('../config/config');
 const { DOCTOR_STATUS, SLOT_STATUS } = require('../config/constants');
-const { sequelize, DoctorProfile, User, Slot, Appointment } = require('../models');
+const path = require('path');
+const { sequelize, DoctorProfile, User, Slot, Appointment, Review } = require('../models');
 const AppError = require('../utils/AppError');
 const { DAY, MINUTE, parsePagination, pageMeta } = require('../utils/helpers');
 const { calculateFee } = require('../utils/fees');
 const { getSettings } = require('./settings.service');
 const { removeFile } = require('../middlewares/upload.middleware');
+const waitlist = require('./waitlist.service');
 
 const { MIN_SLOT_MINUTES, MAX_SLOT_MINUTES, MAX_SLOT_RANGE_DAYS } = config.RULES;
 
@@ -16,9 +18,15 @@ const nextAvailableAt = literal(
   `(SELECT MIN(s.start_at) FROM slots s WHERE s.doctor_id = "DoctorProfile"."id" AND s.status = '${SLOT_STATUS.AVAILABLE}' AND s.start_at > NOW())`
 );
 
+const ratingAvg = literal('(SELECT ROUND(AVG(r.rating)::numeric, 1) FROM reviews r WHERE r.doctor_id = "DoctorProfile"."id")');
+const ratingCount = literal('(SELECT COUNT(*) FROM reviews r WHERE r.doctor_id = "DoctorProfile"."id")');
+const ratingAttrs = [[ratingAvg, 'ratingAvg'], [ratingCount, 'ratingCount']];
+
 const withPricing = (doctor, settings) => {
   const json = doctor.toJSON();
   json.pricing = calculateFee(doctor.fee, settings);
+  json.ratingAvg = json.ratingAvg == null ? null : Number(json.ratingAvg);
+  json.ratingCount = Number(json.ratingCount || 0);
   delete json.rejectionReason;
   delete json.reviewedBy;
   return json;
@@ -40,7 +48,7 @@ async function listPublic(query) {
     DoctorProfile.findAndCountAll({
       where,
       include: [publicUser],
-      attributes: { include: [[nextAvailableAt, 'nextAvailableAt']], exclude: ['certificatePath', 'certificateMimeType'] },
+      attributes: { include: [[nextAvailableAt, 'nextAvailableAt'], ...ratingAttrs], exclude: ['certificatePath', 'certificateMimeType'] },
       // Doctors with the soonest free slot first; those with no availability last.
       order: [[literal('"nextAvailableAt"'), 'ASC NULLS LAST'], ['createdAt', 'DESC']],
       limit: paging.limit,
@@ -67,7 +75,7 @@ async function getPublic(id) {
   const doctor = await DoctorProfile.findOne({
     where: { id, status: DOCTOR_STATUS.APPROVED },
     include: [publicUser],
-    attributes: { include: [[nextAvailableAt, 'nextAvailableAt']] }
+    attributes: { include: [[nextAvailableAt, 'nextAvailableAt'], ...ratingAttrs] }
   });
   if (!doctor) throw AppError.notFound('Doctor not found');
   return withPricing(doctor, await getSettings());
@@ -93,6 +101,26 @@ async function availableSlots(doctorId, { from, to }) {
   });
 }
 
+/** Latest reviews of a doctor, with the reviewer's first name only. */
+async function reviews(doctorId, query) {
+  const paging = parsePagination(query, { defaultLimit: 10, maxLimit: 50 });
+  const { rows, count } = await Review.findAndCountAll({
+    where: { doctorId },
+    include: [{ model: User, as: 'patient', attributes: ['name'] }],
+    order: [['createdAt', 'DESC']],
+    limit: paging.limit,
+    offset: paging.offset
+  });
+  const data = rows.map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    createdAt: r.createdAt,
+    author: (r.patient?.name || 'Patient').split(' ')[0]
+  }));
+  return { rows: data, meta: pageMeta(paging, count) };
+}
+
 /* ----------------------------------------------------------- doctor: profile */
 
 async function updateProfile(profile, data) {
@@ -104,6 +132,19 @@ async function updateProfile(profile, data) {
     await profile.update(profileData, { transaction: t });
   });
   return DoctorProfile.findByPk(profile.id, { include: [{ model: User, as: 'user' }] });
+}
+
+async function updatePhoto(profile, file) {
+  if (!file) throw AppError.badRequest('Please attach a photo', 'FILE_REQUIRED');
+  const old = profile.photoPath;
+  await profile.update({ photoPath: file.filename });
+  if (old) removeFile(path.join(config.UPLOAD_DIR, 'photos', path.basename(old)));
+  return profile;
+}
+
+async function removePhoto(profile) {
+  if (profile.photoPath) removeFile(path.join(config.UPLOAD_DIR, 'photos', path.basename(profile.photoPath)));
+  return profile.update({ photoPath: null });
 }
 
 /** A rejected or pending doctor uploads a new certificate and goes back into the review queue. */
@@ -196,6 +237,7 @@ async function createSlots(profile, slots) {
     );
   });
 
+  if (created.length) waitlist.announce(profile.id, created);
   return { created, skipped };
 }
 
@@ -216,7 +258,9 @@ async function unblockSlot(profile, slotId) {
   if (!slot) throw AppError.notFound('Slot not found');
   if (slot.status !== SLOT_STATUS.BLOCKED) throw AppError.conflict('Only a blocked slot can be reopened');
   if (slot.startAt <= new Date()) throw AppError.rule('This slot is in the past');
-  return slot.update({ status: SLOT_STATUS.AVAILABLE });
+  await slot.update({ status: SLOT_STATUS.AVAILABLE });
+  waitlist.announce(profile.id, [slot]);
+  return slot;
 }
 
 module.exports = {
@@ -224,7 +268,10 @@ module.exports = {
   specializations,
   getPublic,
   availableSlots,
+  reviews,
   updateProfile,
+  updatePhoto,
+  removePhoto,
   replaceCertificate,
   listOwnSlots,
   createSlots,

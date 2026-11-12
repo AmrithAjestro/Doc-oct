@@ -70,6 +70,7 @@ function Generator({ onCreated }) {
   return (
     <Panel className="space-y-4">
       <SectionHeader title="Add availability" subtitle="Slots that overlap ones you already have are skipped automatically." />
+      <div className="grid gap-x-6 gap-y-4 lg:grid-cols-[1fr_auto]">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="From">
           <Input type="date" value={form.from} min={todayKey()} onChange={set('from')} />
@@ -87,8 +88,8 @@ function Generator({ onCreated }) {
               type="button"
               onClick={() => toggleDay(d)}
               aria-pressed={form.weekdays.includes(d)}
-              className={`w-11 rounded-lg border py-1.5 text-[11px] font-bold transition-colors ${
-                form.weekdays.includes(d) ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-line bg-subtle text-ink-2 hover:text-ink'
+              className={`w-[52px] rounded-xl border py-2.5 text-[13.5px] font-semibold transition-colors ${
+                form.weekdays.includes(d) ? 'border-brand-600 bg-brand-600 text-white' : 'border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink'
               }`}
             >
               {label}
@@ -96,7 +97,8 @@ function Generator({ onCreated }) {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      </div>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Field label="Start time">
           <Input type="time" value={form.start} onChange={set('start')} />
         </Field>
@@ -148,22 +150,22 @@ function SlotChip({ slot, onDelete, onUnblock, onOpen }) {
   const past = new Date(slot.startAt) <= new Date();
   if (slot.status === 'booked') {
     return (
-      <button type="button" onClick={() => appt && onOpen(appt.id)} className="flex min-w-0 flex-col rounded-xl border border-indigo-300 bg-accent-soft px-2.5 py-1.5 text-left dark:border-indigo-800" title="Open appointment">
-        <span className="tabular text-[12px] font-bold text-indigo-700 dark:text-indigo-300">{timeOnly(slot.startAt)}</span>
-        <span className="truncate text-[10px] font-semibold text-ink-2">{appt?.patient?.name || 'Booked'}</span>
+      <button type="button" onClick={() => appt && onOpen(appt.id)} className="flex min-w-0 flex-col rounded-xl border border-brand-600 bg-brand-600 px-3 py-2 text-left text-white hover:bg-brand-700 dark:border-brand-500 dark:bg-brand-500" title="Open appointment">
+        <span className="tabular whitespace-nowrap text-[14px] font-semibold">{timeOnly(slot.startAt)}</span>
+        <span className="truncate text-[12px] opacity-90">{appt?.patient?.name || 'Booked'}</span>
       </button>
     );
   }
   const blocked = slot.status === 'blocked';
   return (
-    <div className={`group flex items-center justify-between gap-1 rounded-xl border px-2.5 py-1.5 ${blocked ? 'border-dashed border-line-strong bg-subtle' : 'border-line bg-surface'} ${past ? 'opacity-50' : ''}`}>
+    <div className={`group flex items-center justify-between gap-1 rounded-xl border px-3 py-2 ${blocked ? 'border-dashed border-line-strong bg-subtle' : 'border-line bg-surface'} ${past ? 'opacity-50' : ''}`}>
       <div className="min-w-0">
-        <div className={`tabular text-[12px] font-bold ${blocked ? 'text-ink-3 line-through' : 'text-ink'}`}>{timeOnly(slot.startAt)}</div>
-        <div className="text-[10px] font-semibold text-ink-3">{blocked ? 'Blocked' : past ? 'Passed' : 'Free'}</div>
+        <div className={`tabular whitespace-nowrap text-[14px] font-semibold ${blocked ? 'text-ink-3 line-through' : 'text-ink'}`}>{timeOnly(slot.startAt)}</div>
+        <div className="text-[12px] text-ink-3">{blocked ? 'Blocked' : past ? 'Passed' : 'Free'}</div>
       </div>
       <div className="flex shrink-0">
         {blocked && !past && (
-          <button type="button" onClick={() => onUnblock(slot)} className="rounded-md p-1 text-ink-3 hover:bg-subtle hover:text-emerald-600" aria-label="Reopen slot" title="Reopen">
+          <button type="button" onClick={() => onUnblock(slot)} className="rounded-md p-1 text-ink-3 hover:bg-subtle hover:text-brand-600" aria-label="Reopen slot" title="Reopen">
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
         )}
@@ -214,8 +216,8 @@ export default function Availability() {
   return (
     <div>
       <PageHeader title="Availability" subtitle="Publish the times patients can book. Booked slots cannot be deleted — cancel the appointment first." />
-      <div className="grid gap-5 xl:grid-cols-[400px_1fr]">
-        <div className="xl:sticky xl:top-6 xl:self-start">
+      <div className="space-y-5">
+        <div>
           <Generator
             onCreated={(from) => {
               if (from === weekStart) reload();
@@ -247,19 +249,19 @@ export default function Availability() {
           ) : (
             <div className={`space-y-4 ${loading ? 'opacity-60' : ''}`}>
               {days.map(([key, slots]) => (
-                <div key={key} className="grid gap-2 sm:grid-cols-[110px_1fr]">
-                  <div className="pt-1.5 text-[12px] font-bold text-ink">
+                <div key={key} className="grid gap-2 border-t border-line pt-4 first:border-t-0 first:pt-0 sm:grid-cols-[130px_1fr]">
+                  <div className="pt-2 text-[14px] font-semibold text-ink">
                     {dayLabel(`${key}T00:00:00`)}
-                    {key === todayKey() && <span className="ml-1.5 text-[10px] font-bold uppercase text-indigo-600">Today</span>}
+                    {key === todayKey() && <span className="mt-0.5 block text-[12px] font-medium text-brand-700 dark:text-brand-300">Today</span>}
                   </div>
                   {slots.length ? (
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2">
                       {slots.map((s) => (
                         <SlotChip key={s.id} slot={s} onDelete={remove} onUnblock={unblock} onOpen={(id) => navigate(`/appointments/${id}`)} />
                       ))}
                     </div>
                   ) : (
-                    <div className="pt-1.5 text-[12px] text-ink-3">No slots</div>
+                    <div className="pt-2 text-[14px] text-ink-3">No slots</div>
                   )}
                 </div>
               ))}

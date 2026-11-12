@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { CalendarDays, Eye, FileText } from 'lucide-react';
 import { PageHeader, Toolbar, SegmentedControl, Select, SearchInput, DataTable, EmptyState, RowAction, Button } from '../lib/ui';
 import { AppointmentStatusBadge, ErrorBanner, Pagination } from '../components/common';
+import { VisitBadges } from '../components/WalkIn';
 import AppointmentActions from '../components/AppointmentActions';
 import { useAsync } from '../lib/useAsync';
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +35,8 @@ export default function AppointmentsPage() {
 
   const { data, meta, loading, error, reload, setData } = useAsync(
     () => api.get('/appointments', { params: { scope, status: status || undefined, search: q || undefined, page, limit: 15 } }),
-    [scope, status, q, page]
+    [scope, status, q, page],
+    { live: true }
   );
 
   const replace = (updated) => setData((rows) => rows.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
@@ -84,8 +86,8 @@ export default function AppointmentsPage() {
       label: 'Status',
       render: (a) => (
         <div className="flex items-center gap-1.5">
-          <AppointmentStatusBadge status={a.status} />
-          {a.prescription && <FileText className="h-3.5 w-3.5 text-emerald-600" aria-label="Prescription available" />}
+          <span className="inline-flex flex-wrap gap-1.5"><AppointmentStatusBadge status={a.status} /><VisitBadges a={a} /></span>
+          {a.prescription && <FileText className="h-3.5 w-3.5 text-brand-600" aria-label="Prescription available" />}
         </div>
       )
     },

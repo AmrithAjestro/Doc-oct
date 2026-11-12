@@ -18,6 +18,7 @@ module.exports = (sequelize) => {
       DoctorProfile.belongsTo(models.User, { as: 'reviewer', foreignKey: 'reviewedBy' });
       DoctorProfile.hasMany(models.Slot, { as: 'slots', foreignKey: 'doctorId' });
       DoctorProfile.hasMany(models.Appointment, { as: 'appointments', foreignKey: 'doctorId' });
+      DoctorProfile.hasMany(models.Review, { as: 'reviews', foreignKey: 'doctorId' });
     }
 
     /** The certificate is private: only its presence and name leave the server. */
@@ -25,6 +26,13 @@ module.exports = (sequelize) => {
       const values = { ...this.get() };
       values.hasCertificate = Boolean(values.certificatePath);
       delete values.certificatePath;
+      values.photoUrl = values.photoPath ? `/uploads/photos/${values.photoPath}` : null;
+      // Only an active delay leaves the server; an expired one is the same as none.
+      const lateUntil = values.runningLateUntil ? new Date(values.runningLateUntil) : null;
+      values.runningLate = lateUntil && lateUntil > new Date() ? { minutes: values.runningLateMinutes, until: lateUntil } : null;
+      delete values.runningLateMinutes;
+      delete values.runningLateUntil;
+      delete values.photoPath;
       return values;
     }
   }
@@ -39,6 +47,12 @@ module.exports = (sequelize) => {
       fee: money('fee'),
       bio: { type: DataTypes.TEXT },
       clinicAddress: { type: DataTypes.STRING(255) },
+      languages: { type: DataTypes.STRING(200) },
+      clinicHours: { type: DataTypes.STRING(200) },
+      photoPath: { type: DataTypes.STRING },
+      // Set while the doctor is behind schedule (emergency); expires by itself at runningLateUntil.
+      runningLateMinutes: { type: DataTypes.INTEGER },
+      runningLateUntil: { type: DataTypes.DATE },
       certificatePath: { type: DataTypes.STRING },
       certificateName: { type: DataTypes.STRING },
       certificateMimeType: { type: DataTypes.STRING(80) },

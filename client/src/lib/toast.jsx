@@ -45,7 +45,7 @@ export function ToastHost() {
           {item.type === 'error' ? (
             <XCircle className="mt-0.5 h-[18px] w-[18px] shrink-0 text-rose-500" />
           ) : (
-            <CheckCircle2 className="mt-0.5 h-[18px] w-[18px] shrink-0 text-emerald-500" />
+            <CheckCircle2 className="mt-0.5 h-[18px] w-[18px] shrink-0 text-brand-600" />
           )}
           <span className="flex-1 text-[13px] font-semibold leading-snug text-ink">{item.msg}</span>
           <button type="button" onClick={() => setItem(null)} className="text-ink-3 hover:text-ink" aria-label="Dismiss">
