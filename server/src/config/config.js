@@ -45,7 +45,7 @@ const config = {
     from: process.env.MAIL_FROM || process.env.SMTP_USER || ''
   },
 
-  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@docbook.local',
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'amrithamrith2753@gmail.com',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'Admin@1234',
 
   /**

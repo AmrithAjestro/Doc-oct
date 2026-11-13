@@ -36,10 +36,10 @@ npm run dev                     # app on :5173 (proxies /api and /uploads to :50
 
 | Role | Email | Password |
 |---|---|---|
-| Patient | `patient@demo.local` | `Demo@1234` |
-| Doctor (approved) | `ananya.rao@demo.local` · `rahul.menon@demo.local` · `fatima.sheikh@demo.local` | `Demo@1234` |
+| Patient | `demo@gmail.com` | `Password@123` |
+| Doctor (approved) | `doc@gmail.com` · `rahul.menon@demo.local` · `fatima.sheikh@demo.local` | `Password@1234` (first) · `Demo@1234` (others) |
 | Doctor (awaiting approval) | `vikram.iyer@demo.local` | `Demo@1234` |
-| Admin | `admin@docbook.local` | `Admin@1234` |
+| Admin | `amrithamrith2753@gmail.com` | `Admin@1234` |
 
 The login page has one-click buttons for these.
 
@@ -169,6 +169,6 @@ client/src
   components/    app shell, sidebar, appointment actions, prescription, shared bits
   pages/         auth, patient, doctor, admin and shared pages
 ```
-Patient: patient@demo.local / Demo@1234
-Doctor: ananya.rao@demo.local / Demo@1234
-Admin: admin@docbook.local / Admin@1234
+Patient: demo@gmail.com / Password@123
+Doctor: doc@gmail.com / Password@1234
+Admin: amrithamrith2753@gmail.com / Admin@1234

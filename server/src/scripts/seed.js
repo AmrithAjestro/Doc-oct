@@ -19,7 +19,7 @@ const { MINUTE, DAY } = require('../utils/helpers');
 const DEMO_PASSWORD = 'Demo@1234';
 
 const DOCTORS = [
-  { name: 'Ananya Rao', email: 'ananya.rao@demo.local', specialization: 'Cardiology', qualification: 'MBBS, MD (Cardiology)', experienceYears: 12, fee: 800, bio: 'Interventional cardiologist focused on preventive heart care.', clinicAddress: 'Heart Care Clinic, MG Road' },
+  { name: 'Ananya Rao', email: 'doc@gmail.com', password: 'Password@1234', specialization: 'Cardiology', qualification: 'MBBS, MD (Cardiology)', experienceYears: 12, fee: 800, bio: 'Interventional cardiologist focused on preventive heart care.', clinicAddress: 'Heart Care Clinic, MG Road' },
   { name: 'Rahul Menon', email: 'rahul.menon@demo.local', specialization: 'Dermatology', qualification: 'MBBS, DVL', experienceYears: 7, fee: 600, bio: 'Skin, hair and nail specialist.', clinicAddress: 'SkinFirst, Indiranagar' },
   { name: 'Fatima Sheikh', email: 'fatima.sheikh@demo.local', specialization: 'Pediatrics', qualification: 'MBBS, DCH', experienceYears: 9, fee: 500, bio: 'Child health, vaccinations and growth monitoring.', clinicAddress: 'Little Steps Clinic, Koramangala' },
   { name: 'Vikram Iyer', email: 'vikram.iyer@demo.local', specialization: 'Orthopedics', qualification: 'MBBS, MS (Ortho)', experienceYears: 4, fee: 700, status: DOCTOR_STATUS.PENDING }
@@ -66,10 +66,10 @@ async function ensureUser({ name, email, role, phone }, password) {
 async function seedDemo() {
   const settings = await getSettings();
   const certificate = demoCertificate();
-  const { user: patient } = await ensureUser({ name: 'Priya Sharma', email: 'patient@demo.local', role: ROLES.USER, phone: '+91 98765 43210' }, DEMO_PASSWORD);
+  const { user: patient } = await ensureUser({ name: 'Priya Sharma', email: 'demo@gmail.com', role: ROLES.USER, phone: '+91 98765 43210' }, 'Password@123');
 
   for (const [index, d] of DOCTORS.entries()) {
-    const { user, created } = await ensureUser({ name: d.name, email: d.email, role: ROLES.DOCTOR }, DEMO_PASSWORD);
+    const { user, created } = await ensureUser({ name: d.name, email: d.email, role: ROLES.DOCTOR }, d.password || DEMO_PASSWORD);
     if (!created) continue;
     const status = d.status || DOCTOR_STATUS.APPROVED;
     const profile = await DoctorProfile.create({
@@ -120,7 +120,7 @@ async function seedDemo() {
     }
   }
   console.log(`✅ Demo data ready. Password for every demo account: ${DEMO_PASSWORD}`);
-  console.log('   Patient: patient@demo.local   Doctors: ananya.rao@demo.local, rahul.menon@demo.local, fatima.sheikh@demo.local');
+  console.log('   Patient: demo@gmail.com (Password@123)   Doctors: doc@gmail.com (Password@1234), rahul.menon@demo.local, fatima.sheikh@demo.local');
   console.log('   Pending doctor (to approve as admin): vikram.iyer@demo.local');
 }
 

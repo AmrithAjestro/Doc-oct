@@ -8,9 +8,9 @@ import { errorMessage } from '../../lib/api';
 
 // Seeded by `npm run db:seed:demo` — handy for reviewers and the demo video.
 const DEMO_ACCOUNTS = [
-  { label: 'Patient', email: 'patient@demo.local', password: 'Demo@1234' },
-  { label: 'Doctor', email: 'ananya.rao@demo.local', password: 'Demo@1234' },
-  { label: 'Admin', email: 'admin@docbook.local', password: 'Admin@1234' }
+  { label: 'Patient', email: 'demo@gmail.com', password: 'Password@123' },
+  { label: 'Doctor', email: 'doc@gmail.com', password: 'Password@1234' },
+  { label: 'Admin', email: 'amrithamrith2753@gmail.com', password: 'Admin@1234' }
 ];
 
 export default function Login() {
