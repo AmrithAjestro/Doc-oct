@@ -12,16 +12,33 @@ const transporter = isSmtpConfigured
     })
   : null;
 
+/** App name and support address from the admin settings, used in every e-mail's header and footer. */
+async function getBrand() {
+  try {
+    const { Setting } = require('../models');
+    const s = await Setting.findByPk(1, { attributes: ['appName', 'supportEmail'] });
+    return { appName: s?.appName, supportEmail: s?.supportEmail };
+  } catch {
+    return {};
+  }
+}
+
 /**
- * Sends a plain e-mail when SMTP is configured. Without SMTP (local development) the in-app
- * notification is the only channel and the mail is just logged.
+ * Sends an e-mail (HTML with a plain-text twin) when SMTP is configured. Without SMTP (local
+ * development) the in-app notification is the only channel and the mail is just logged.
  */
-async function sendMail({ to, subject, text }) {
+async function sendMail({ to, subject, text, html }) {
   if (!transporter) {
     if (!config.IS_PRODUCTION) console.log(`[mail:dev] to=${to} subject="${subject}"`);
     return;
   }
-  await transporter.sendMail({ from: config.SMTP.from, to, subject, text });
+  const { appName } = await getBrand();
+  const from = appName && config.SMTP.user && !config.SMTP.from.includes('<') ? `"${appName}" <${config.SMTP.from}>` : config.SMTP.from;
+  await transporter.sendMail({ from, to, subject, text, html });
 }
 
-module.exports = { sendMail, isSmtpConfigured };
+/** Fire-and-forget: e-mail problems are logged and never break the request. */
+const sendMailSafe = (mail, label = 'mail') =>
+  sendMail(mail).catch((err) => console.error(`[${label}] e-mail failed:`, err.message));
+
+module.exports = { sendMail, sendMailSafe, getBrand, isSmtpConfigured };

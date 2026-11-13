@@ -115,15 +115,22 @@ export default function AppointmentActions({ appointment, onChange, size = 'sm',
 
 /** "I can't make it": shows the doctor's next free slot and moves the booking there once the patient confirms. */
 function RescheduleModal({ appointment, onClose, onDone, onCancelInstead }) {
-  const [state, setState] = useState({ loading: true, slot: null, error: null, code: null });
+  const [state, setState] = useState({ loading: true, slot: null, options: [], error: null, code: null });
   const [saving, setSaving] = useState(false);
 
-  React.useEffect(() => {
+  const load = React.useCallback(() => {
+    setState({ loading: true, slot: null, options: [], error: null, code: null });
     api
       .get(`/appointments/${appointment.id}/reschedule-preview`)
-      .then((r) => setState({ loading: false, slot: unwrap(r).nextSlot, error: null }))
-      .catch((err) => setState({ loading: false, slot: null, error: errorMessage(err), code: errorCode(err) }));
+      .then((r) => {
+        const d = unwrap(r);
+        const options = d.options?.length ? d.options : d.nextSlot ? [d.nextSlot] : [];
+        setState({ loading: false, slot: options[0] || null, options, error: null });
+      })
+      .catch((err) => setState({ loading: false, slot: null, options: [], error: errorMessage(err), code: errorCode(err) }));
   }, [appointment.id]);
+
+  React.useEffect(load, [load]);
 
   const submit = async () => {
     setSaving(true);
@@ -135,12 +142,8 @@ function RescheduleModal({ appointment, onClose, onDone, onCancelInstead }) {
     } catch (err) {
       toast.error(errorMessage(err));
       if (errorCode(err) === 'SLOT_UNAVAILABLE') {
-        // Someone took it meanwhile: look for the next one again.
-        setState({ loading: true, slot: null, error: null });
-        api
-          .get(`/appointments/${appointment.id}/reschedule-preview`)
-          .then((r) => setState({ loading: false, slot: unwrap(r).nextSlot, error: null }))
-          .catch((e) => setState({ loading: false, slot: null, error: errorMessage(e), code: errorCode(e) }));
+        // Someone took it meanwhile: refresh the list.
+        load();
       }
     } finally {
       setSaving(false);
@@ -151,7 +154,7 @@ function RescheduleModal({ appointment, onClose, onDone, onCancelInstead }) {
     <Modal
       open
       onClose={onClose}
-      title="Move to the next available slot"
+      title="Choose a new time"
       subtitle={`With ${doctorName(appointment.doctor)}`}
       footer={
         <>
@@ -191,6 +194,26 @@ function RescheduleModal({ appointment, onClose, onDone, onCancelInstead }) {
             <div className="rounded-xl border border-brand-300 bg-accent-soft p-3 dark:border-brand-800">
               <div className="label-eyebrow">New</div>
               <div className="mt-1 text-[13px] font-bold text-ink">{dateTime(state.slot.startAt)}</div>
+            </div>
+          </div>
+          <div>
+            <div className="mb-2 text-[13px] font-medium text-ink-2">Available times</div>
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {state.options.map((o) => (
+                <label
+                  key={o.id}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${state.slot?.id === o.id ? 'border-brand-600 bg-accent-soft' : 'border-line hover:border-line-strong'}`}
+                >
+                  <input
+                    type="radio"
+                    name="reschedule-slot"
+                    className="accent-[var(--accent)]"
+                    checked={state.slot?.id === o.id}
+                    onChange={() => setState((s) => ({ ...s, slot: o }))}
+                  />
+                  <span className="text-[14px] font-medium text-ink">{dateTime(o.startAt)}</span>
+                </label>
+              ))}
             </div>
           </div>
           <p className="text-xs leading-relaxed text-ink-2">

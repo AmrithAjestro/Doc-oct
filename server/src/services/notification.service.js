@@ -1,5 +1,6 @@
 const { Notification, User } = require('../models');
-const { sendMail } = require('./mailer.service');
+const { sendMail, getBrand } = require('./mailer.service');
+const { notificationEmail } = require('./emailTemplates');
 
 /**
  * Stores an in-app notification and e-mails it. Inside a transaction the e-mail waits for the
@@ -10,9 +11,10 @@ async function notify(userId, { type, title, message, appointmentId = null }, tr
 
   const email = async () => {
     try {
-      const user = await User.findByPk(userId, { attributes: ['email', 'phone', 'isActive'] });
-      if (!user?.isActive) return;
-      if (!user.email.endsWith('@patients.invalid')) await sendMail({ to: user.email, subject: title, text: message });
+      const user = await User.findByPk(userId, { attributes: ['name', 'email', 'role', 'isActive'] });
+      if (!user?.isActive || !user.email || user.email.endsWith('@patients.invalid')) return;
+      const mail = notificationEmail({ type, title, message, appointmentId }, user, await getBrand());
+      await sendMail({ to: user.email, ...mail });
     } catch (err) {
       console.error('[notify] e-mail failed:', err.message);
     }

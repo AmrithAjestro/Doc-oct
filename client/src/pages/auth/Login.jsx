@@ -37,7 +37,7 @@ export default function Login() {
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in as a patient, doctor or administrator.">
+    <AuthLayout centered title="Welcome back" subtitle="Sign in to continue">
       <form onSubmit={submit} className="space-y-4" noValidate>
         <Field label="Email" required>
           <Input type="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required autoFocus />
@@ -71,9 +71,9 @@ export default function Login() {
         </p>
       </div>
 
-      <div className="surface mt-8 rounded-2xl p-4">
+      <div className="mt-7 border-t border-line pt-5 text-center">
         <div className="label-eyebrow mb-2">Demo accounts</div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
           {DEMO_ACCOUNTS.map((a) => (
             <Button key={a.label} size="sm" onClick={() => setForm({ email: a.email, password: a.password })}>
               {a.label}

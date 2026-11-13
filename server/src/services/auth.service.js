@@ -1,7 +1,8 @@
-const crypto = require('crypto');
+﻿const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const config = require('../config/config');
-const { sendMail } = require('./mailer.service');
+const { sendMailSafe, getBrand } = require('./mailer.service');
+const tpl = require('./emailTemplates');
 const { ROLES } = require('../config/constants');
 const { sequelize, User, DoctorProfile } = require('../models');
 const AppError = require('../utils/AppError');
@@ -20,6 +21,7 @@ async function loadSession(userId) {
 
 async function registerUser({ name, email, phone, password }) {
   const user = await User.create({ name, email, phone, passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS), role: ROLES.USER });
+  getBrand().then((b) => sendMailSafe({ to: user.email, ...tpl.welcomePatient(user, b) }, 'welcome'));
   return loadSession(user.id);
 }
 
@@ -28,7 +30,7 @@ async function registerDoctor(data, file) {
   const { name, email, phone, password, ...profile } = data;
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-  const userId = await sequelize.transaction(async (t) => {
+  const created = await sequelize.transaction(async (t) => {
     const user = await User.create(
       { name: name.replace(/^dr\.?\s+/i, ''), email, phone, passwordHash, role: ROLES.DOCTOR },
       { transaction: t }
@@ -47,16 +49,18 @@ async function registerDoctor(data, file) {
     for (const admin of admins) {
       await notify(admin.id, { type: 'doctor_registered', title: 'New doctor awaiting approval', message: `Dr. ${user.name} (${profile.specialization}) registered and is waiting for certificate review.` }, t);
     }
-    return user.id;
+    return user;
   });
-  return loadSession(userId);
+  getBrand().then((b) => sendMailSafe({ to: created.email, ...tpl.welcomeDoctor(created, profile, b) }, 'welcome'));
+  return loadSession(created.id);
 }
 
-async function login({ email, password }) {
+async function login({ email, password }, meta = {}) {
   const user = await User.scope('withPassword').findOne({ where: { email: email.trim().toLowerCase() } });
   const valid = await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH);
   if (!user || !valid) throw AppError.unauthorized('Incorrect email or password', 'INVALID_CREDENTIALS');
   if (!user.isActive) throw AppError.forbidden('Your account has been deactivated. Contact support.', 'ACCOUNT_INACTIVE');
+  getBrand().then((b) => sendMailSafe({ to: user.email, ...tpl.loginAlert(user, meta, b) }, 'login alert'));
   return loadSession(user.id);
 }
 
@@ -72,6 +76,7 @@ async function changePassword(userId, { currentPassword, newPassword }) {
     throw AppError.badRequest('Current password is incorrect', 'INVALID_PASSWORD');
   }
   await user.update({ passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS), tokenVersion: user.tokenVersion + 1 });
+  getBrand().then((b) => sendMailSafe({ to: user.email, ...tpl.passwordChanged(user, b) }, 'password changed'));
   return loadSession(user.id);
 }
 
@@ -93,15 +98,7 @@ async function requestPasswordReset({ email }) {
   await user.update({ resetTokenHash: sha256(token), resetTokenExpiresAt: new Date(Date.now() + config.RESET_TOKEN_MINUTES * 60000) });
   const link = `${config.APP_URL}/reset-password?token=${token}`;
   if (!config.IS_PRODUCTION) console.log(`[password reset] ${user.email}: ${link}`);
-  await sendMail({
-    to: user.email,
-    subject: 'Reset your password',
-    text: `Use this link to choose a new password. It works once and expires in ${config.RESET_TOKEN_MINUTES} minutes:
-
-${link}
-
-If you did not ask for this, ignore this e-mail.`
-  }).catch((err) => console.error('[password reset] e-mail failed:', err.message));
+  await sendMailSafe({ to: user.email, ...tpl.passwordReset(user, link, config.RESET_TOKEN_MINUTES, await getBrand()) }, 'password reset');
 }
 
 async function resetPassword({ token, password }) {
@@ -115,6 +112,7 @@ async function resetPassword({ token, password }) {
     resetTokenExpiresAt: null,
     tokenVersion: user.tokenVersion + 1
   });
+  getBrand().then((b) => sendMailSafe({ to: user.email, ...tpl.passwordChanged(user, b) }, 'password changed'));
   return loadSession(user.id);
 }
 

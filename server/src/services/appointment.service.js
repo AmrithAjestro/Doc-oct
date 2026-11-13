@@ -280,11 +280,21 @@ async function previewReschedule(actor, id) {
   if (!appt || appt.userId !== actor.id) throw AppError.notFound('Appointment not found');
   assertPatientCanChange(appt);
   const after = lockLifted(appt) ? new Date() : appt.startAt;
-  const slot = await findNextSlot({ doctorId: appt.doctorId, after, userId: actor.id, excludeAppointmentId: appt.id });
-  if (!slot) {
+  const candidates = await Slot.findAll({
+    where: { doctorId: appt.doctorId, status: SLOT_STATUS.AVAILABLE, startAt: { [Op.gt]: new Date(Math.max(ms(after), Date.now())) } },
+    order: [['startAt', 'ASC']],
+    limit: 60
+  });
+  const options = [];
+  for (const s of candidates) {
+    if (options.length >= 20) break;
+    if (s.id === appt.slotId) continue;
+    if (!(await findUserClash(actor.id, s.startAt, s.endAt, undefined, appt.id))) options.push({ id: s.id, startAt: s.startAt, endAt: s.endAt });
+  }
+  if (!options.length) {
     throw AppError.notFound('No later slot is available with this doctor right now. You can cancel the appointment instead.', 'NO_SLOT_AVAILABLE');
   }
-  return { appointment: present(appt, actor), nextSlot: slot };
+  return { appointment: present(appt, actor), nextSlot: options[0], options };
 }
 
 async function reschedule(actor, id, { slotId }) {
@@ -417,6 +427,7 @@ async function savePrescription(actor, id, data) {
     if (ms(appt.startAt) > Date.now()) throw AppError.rule('A prescription can be added once the appointment has started', 'NOT_STARTED');
 
     const existing = await Prescription.findOne({ where: { appointmentId: appt.id }, transaction: t });
+    const oldFollowUp = existing?.followUpDate || null;
     const prescription = existing
       ? await existing.update(data, { transaction: t })
       : await Prescription.create({ ...data, appointmentId: appt.id }, { transaction: t });
@@ -431,6 +442,22 @@ async function savePrescription(actor, id, data) {
       },
       t
     );
+
+    // A newly set or changed follow-up date gets its own notice (in-app + e-mail), so the patient knows to come back
+    const newFollowUp = prescription.followUpDate || null;
+    if (newFollowUp && newFollowUp !== oldFollowUp) {
+      const when = new Date(`${newFollowUp}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      await notify(
+        appt.userId,
+        {
+          type: 'follow_up_scheduled',
+          title: oldFollowUp ? 'Follow-up visit rescheduled' : 'Follow-up visit scheduled',
+          message: `${drName(appt.doctor)} wants to see you again on ${when}. Please book a slot for that day.`,
+          appointmentId: appt.id
+        },
+        t
+      );
+    }
     return prescription;
   });
 }

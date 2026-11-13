@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, Printer, Pill } from 'lucide-react';
+import { Plus, Trash2, Save, Pill } from 'lucide-react';
 import { Button, Field, Input, Textarea, IconButton, EmptyState } from '../lib/ui';
 import api, { errorMessage, unwrap } from '../lib/api';
 import { toast } from '../lib/toast';
@@ -51,11 +51,8 @@ export function PrescriptionView({ prescription }) {
           <p className="whitespace-pre-line text-[13px] leading-relaxed text-ink">{p.advice}</p>
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-2">
-        <span>{p.followUpDate ? `Follow-up on ${dateOnly(p.followUpDate)}` : 'No follow-up scheduled'}</span>
-        <Button size="sm" icon={Printer} onClick={() => window.print()} className="print:hidden">
-          Print
-        </Button>
+      <div className="text-xs text-ink-2">
+        {p.followUpDate ? `Follow-up on ${dateOnly(p.followUpDate)}` : 'No follow-up scheduled'}
       </div>
     </div>
   );

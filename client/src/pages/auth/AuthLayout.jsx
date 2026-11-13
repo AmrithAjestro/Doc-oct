@@ -4,9 +4,35 @@ import { ShieldCheck, CalendarCheck2, BellRing } from 'lucide-react';
 import Brand from '../../components/Brand';
 import { useBranding } from '../../context/BrandingContext';
 
-/** Split layout: brand story on the left (desktop), the form on the right. */
-export default function AuthLayout({ title, subtitle, children, wide = false }) {
+/** Single centred card: logo on top, the form inside, small print below. */
+function CenteredCard({ title, subtitle, children }) {
+  const { appName } = useBranding();
+  return (
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-canvas px-4 py-10">
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[45vh] bg-gradient-to-b from-brand-100 to-transparent dark:from-brand-900/30" />
+      <div className="relative w-full max-w-[420px]">
+        <div className="rounded-2xl border border-line bg-surface px-7 py-9 shadow-xl shadow-brand-900/5 sm:px-9">
+          <Link to="/" className="mb-6 flex justify-center">
+            <Brand size="lg" />
+          </Link>
+          <div className="text-center">
+            <h1 className="text-[24px] font-bold tracking-tight text-ink">{title}</h1>
+            {subtitle && <p className="mt-1.5 text-[14px] leading-relaxed text-ink-2">{subtitle}</p>}
+          </div>
+          <div className="mt-7">{children}</div>
+        </div>
+        <p className="mt-6 text-center text-[12px] text-ink-3">
+          © {new Date().getFullYear()} {appName || 'DocBook'} · For patients, doctors and clinics
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Split layout: brand story on the left (desktop), the form on the right. `centered` = single card. */
+export default function AuthLayout({ title, subtitle, children, wide = false, centered = false }) {
   const { tagline } = useBranding();
+  if (centered) return <CenteredCard title={title} subtitle={subtitle}>{children}</CenteredCard>;
   const points = [
     { icon: ShieldCheck, text: 'Every doctor is verified by our team before they can take bookings.' },
     { icon: CalendarCheck2, text: 'Pick a real free slot — no double booking, ever.' },
