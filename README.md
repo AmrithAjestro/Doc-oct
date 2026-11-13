@@ -1,174 +1,92 @@
 # Doctor Appointment System
 
-A full-stack booking platform with three roles — **Patient**, **Doctor** and **Admin**.
+An online clinic booking app with three roles:
 
-- **Frontend:** React 18 · Vite · React Router · Tailwind CSS · framer-motion · lucide-react
-- **Backend:** Node.js · Express · Sequelize · PostgreSQL · Multer (uploads) · node-cron (reminders) · Zod (validation) · JWT
+- **Patient**: find doctors, book a slot, confirm or reschedule, get reminders, see prescriptions and leave reviews.
+- **Doctor**: register with a certificate, publish available slots, manage visits and walk-ins, and write prescriptions.
+- **Admin**: approve doctors, manage users, and set the branding and platform commission.
 
----
+**Tech:** React + Vite + Tailwind (frontend) · Node.js + Express + Sequelize + PostgreSQL (backend)
 
-## Quick start (Windows)
+## Run locally
 
-Double-click **`start.bat`**. It:
+**Windows:** double-click `start.bat`. It installs everything, sets up the database and opens the app.
+`stop.bat` stops it.
 
-1. starts PostgreSQL (a portable install in `%USERPROFILE%\pgsql`, or uses your own server on `127.0.0.1:5432`),
-2. on first run installs packages, creates `server/.env` with a random JWT secret, and creates + migrates + seeds the database,
-3. opens the API (`http://localhost:5000/api`) and the app (`http://localhost:5173`) in their own windows and launches the browser.
-
-`stop.bat` closes the API and app windows and stops the portable PostgreSQL.
-
-### Manual setup (any OS)
+**Any OS** (needs PostgreSQL 13+):
 
 ```bash
-# PostgreSQL 13+ running locally; defaults: postgres / postgres @ 127.0.0.1:5432
 cd server
-cp .env.example .env            # set JWT_SECRET (and DB_* if different)
+cp .env.example .env     # set JWT_SECRET, and DB_* if needed
 npm install
-npm run db:setup                # create DB, run migrations, seed admin + demo data
-npm run dev                     # API on :5000
+npm run db:setup         # creates the database, tables and demo data
+npm run dev              # API on http://localhost:5000
 
 cd ../client
 npm install
-npm run dev                     # app on :5173 (proxies /api and /uploads to :5000)
+npm run dev              # app on http://localhost:5173
 ```
 
-### Demo accounts (`npm run db:seed:demo`)
+## Demo accounts
 
 | Role | Email | Password |
 |---|---|---|
 | Patient | `demo@gmail.com` | `Password@123` |
-| Doctor (approved) | `doc@gmail.com` · `rahul.menon@demo.local` · `fatima.sheikh@demo.local` | `Password@1234` (first) · `Demo@1234` (others) |
-| Doctor (awaiting approval) | `vikram.iyer@demo.local` | `Demo@1234` |
-| Admin | `amrithamrith2753@gmail.com` | `Admin@1234` |
+| Doctor | `doc@gmail.com` | `Password@1234` |
 
-The login page has one-click buttons for these.
+The login page has one-click buttons for these accounts.
 
-### Tests
+## Deploy on Railway
 
-With the API running: `cd server && npm run test:e2e` — 17 end-to-end checks against the real API and database
-(registration with upload, approval, slot overlap, a **concurrent double-booking race**, the 24-hour lock, rescheduling,
-the automatic move of unconfirmed bookings, completion and prescriptions, role isolation). The script cleans up after itself.
+Create one project with three services:
 
----
+1. **Postgres**: **+ Create → Database → PostgreSQL**.
+2. **Backend**: **+ Create → GitHub Repo**, then set:
+   - Root Directory: `/server`
+   - Start Command: `npm run db:init && npm start`
+   - Healthcheck Path: `/api/health`
+   - Variables:
+     ```
+     NODE_ENV=production
+     DATABASE_URL=${{Postgres.DATABASE_URL}}
+     ALLOWED_ORIGINS=https://<frontend-domain>
+     APP_URL=https://<frontend-domain>
+     JWT_SECRET=<long random string>
+     ADMIN_EMAIL=<admin email>
+     ADMIN_PASSWORD=<admin password>
+     ```
+3. **Frontend**: **+ Create → GitHub Repo** again, then set:
+   - Root Directory: `/client`
+   - Build Command: `npm run build`
+   - Start Command: `npm start`
+   - Variable: `VITE_API_URL=https://<backend-domain>`
 
-## Features by role
+Click **Generate Domain** on both the backend and the frontend. Every push to `main` redeploys them.
+Use `npm run db:setup` instead of `db:init` in the start command if you also want the demo data.
+To send emails, add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` to the backend.
+Every backend option is explained in `server/.env.example`.
 
-**Patient** — register · browse/search doctors by specialization · see the fee breakdown (doctor fee + platform fee) ·
-book a free slot · confirm attendance · "I can't make it" → move to the next free slot · cancel · view prescriptions ·
-notifications · dashboard.
+## Useful scripts (in `server/`)
 
-**Doctor** — register with a certificate (PDF/JPG/PNG) · wait for approval (re-upload if rejected) · edit profile and fee ·
-publish availability with a bulk slot generator (date range, weekdays, hours, slot length, breaks) · delete/reopen slots ·
-see appointments · complete / mark no-show · write prescriptions · dashboard with today's schedule and earnings.
-
-**Admin** — review the doctor queue with an inline certificate preview · approve / reject / revoke · activate/deactivate users ·
-see all appointments · configure app name, tagline, logo, commission (percentage or flat) and currency · dashboard with
-counts, status breakdown and commission earned.
-
----
-
-## Accounts and sessions
-
-- **Forgot password:** "Forgot password?" on the sign-in page e-mails a one-time link valid for 30 minutes (only a hash of it is stored).
-  Without SMTP the link is printed in the API window (`[password reset] ...`). Set `APP_URL` if the app is not on `http://localhost:5173`.
-- **Sign out everywhere:** Account page. Changing or resetting the password also signs out every other device.
-  Each login token carries the account's `token_version`; bumping it rejects all older tokens on their next request.
-- **E-mail:** fill `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (and `MAIL_FROM`) in `server/.env` to send reminders and reset links by e-mail.
-
-## Clinic situations
-
-- **Walk-in / emergency:** the doctor records a patient seen without a booking (matched by e-mail/phone or created). The visit starts at once,
-  costs the doctor's fee only, and booked patients due during it can be told about the delay in one step.
-- **Doctor can't attend:** works before or after the start. The visit moves to a time the doctor picks or their next free time (same price);
-  the patient accepts, picks another time or cancels without the 24-hour rule. With no free time left it is cancelled, never marked no-show.
-- **Waitlist:** on a doctor's page a patient asks to be notified (any day or one date). When a slot frees up — a cancellation,
-  a reopened slot or new availability — waiting patients are told, oldest request first. Booking with that doctor removes them from the list.
-
-## Business rules
-
-| Rule | Implementation |
+| Command | What it does |
 |---|---|
-| **No double booking** | Booking runs in one transaction that locks the slot row (`SELECT … FOR UPDATE`). A partial unique index `appointments(slot_id) WHERE status IN ('pending_confirmation','confirmed')` guarantees it at the database level even if application code is bypassed. A patient can't hold two overlapping appointments (per-patient advisory lock + overlap check). Doctors can't create overlapping slots (per-doctor advisory lock; overlaps are skipped and reported). |
-| **Fee = doctor fee + commission** | Calculated only on the server (`utils/fees.js`). The three amounts are **snapshotted onto the appointment** at booking, so later fee or commission changes never alter existing bookings. |
-| **No cancel / reschedule within 24 h** | Enforced by the API (`422 LOCK_WINDOW`). The API also returns an `actions` object per appointment (what the viewer may do now), so the UI never re-implements the rule. |
-| **Confirmation & auto-reschedule** | A booking made more than 24 h ahead starts as *awaiting confirmation*; the patient must confirm before *start − 24 h*. A booking made inside 24 h is confirmed immediately (and the UI warns it cannot be changed). If the deadline passes unconfirmed, the scheduler **moves it to the doctor's next free slot** (at least 48 h ahead, so the patient gets a full day to confirm the new time) and notifies both sides. After 2 automatic moves, or with no slot left, it is cancelled and the slot released. |
-| **"I can't make it"** | The patient previews the doctor's next free slot and confirms the move; the old slot is released in the same transaction. If someone takes the slot meanwhile, the UI fetches the next one. |
-| **Notifications** | In-app (and e-mail when SMTP is configured): booking created, "please confirm" nudge, reminders **1 day, 1 hour and 15 minutes** before, confirmation, reschedule, cancellation, completion, prescription, approval/rejection. |
+| `npm run db:init` | Creates any missing tables, plus the admin account. Safe to run on every deploy. |
+| `npm run db:setup` | Runs `db:init` and adds the demo data. |
+| `npm run db:reset` | Deletes all data and starts fresh. Local only. |
+| `npm test` | Runs the booking rule tests. |
 
-### Reminders
+## Key rules
 
-Reminders are rows in a `reminders` table created at booking time (only those still in the future — a booking 5 h ahead
-gets no 1-day reminder). A `node-cron` job runs every minute: it first processes unconfirmed appointments, then sends due
-reminders. Rows are claimed with `FOR UPDATE SKIP LOCKED`, so a restart never re-sends and several API instances never
-send the same reminder twice. Reminders are reset whenever an appointment moves and dropped when it is cancelled or completed;
-a reminder whose appointment is no longer valid is marked `skipped` rather than sent.
-
----
-
-## Other edge cases handled
-
-- Doctors can sign in while pending, but cannot publish slots, appear in search or receive bookings until approved.
-- Revoking a doctor or deactivating any user cancels their future appointments and notifies the other party.
-- A doctor who cancels gives a reason; the slot is **blocked** (not reopened) because they are unavailable — it can be reopened later.
-- Completion, no-show and prescriptions are only possible once the appointment has started, and only by its own doctor.
-- Users only ever see their own appointments (others return 404, not 403, so ids can't be probed).
-- Uploads: allow-listed MIME types **and** file signature check, size limits, random file names; files of failed requests are deleted.
-  Certificates are never served statically — only through an authorised route (admin or the owning doctor). SVG logos are refused (script risk).
-- A doctor's private notes are never sent to the patient.
-- Times are stored as `timestamptz` (UTC) and shown in the viewer's local time zone; slots are generated in the doctor's browser time zone.
-- Login: same response time for unknown e-mails and wrong passwords; rate-limited auth routes; deactivated accounts are rejected on every request (the user is loaded fresh per request, not trusted from the token).
-- Consistent error format `{ success: false, code, message, details }`; 5xx details stay in the server log.
-
----
-
-## Database
-
-```
-users ─1:1─ doctor_profiles ─1:n─ slots
-  │                │                 │
-  │ 1:n            │ 1:n             │ 1:n (history)
-  └──────────── appointments ────────┘
-                   │ 1:1 prescriptions
-                   │ 1:n reminders
-users ─1:n─ notifications (optional appointment link)
-settings (single row: branding + commission)
-```
-
-All tables use UUID keys and are created by a Sequelize migration (`server/src/migrations`), including CHECK constraints
-(`end_at > start_at`, non-negative fees, single settings row) and the partial unique index above.
-
-## API overview (`/api`)
-
-| Area | Endpoints |
-|---|---|
-| Auth | `POST /auth/register` · `POST /auth/register/doctor` (multipart) · `POST /auth/login` · `GET/PATCH /auth/me` · `POST /auth/change-password` · `POST /auth/logout-all` · `POST /auth/forgot-password` · `POST /auth/reset-password` |
-| Public | `GET /settings/public` · `GET /doctors` · `GET /doctors/specializations` · `GET /doctors/:id` · `GET /doctors/:id/slots` · `GET /doctors/:id/reviews` |
-| Doctor | `GET/PATCH /doctor/profile` · `PUT /doctor/profile/certificate` · `PUT/DELETE /doctor/profile/photo` · `GET/POST /doctor/slots` · `DELETE /doctor/slots/:id` · `POST /doctor/slots/:id/unblock` |
-| Appointments | `GET /appointments` (role-scoped) · `POST /appointments` · `GET /appointments/:id` · `POST …/confirm` · `GET …/reschedule-preview` · `POST …/reschedule` · `POST …/cancel` · `POST …/complete` · `POST …/no-show` · `PUT …/prescription` · `PUT …/review` |
-| Notifications | `GET /notifications` · `GET /notifications/unread-count` · `PATCH /notifications/:id/read` · `PATCH /notifications/read-all` |
-| Dashboards | `GET /dashboard` (role-specific) |
-| Admin | `GET /admin/doctors` · `GET /admin/doctors/:id` · `PATCH /admin/doctors/:id/status` · `GET /doctors/:id/certificate` · `GET /admin/users` · `PATCH /admin/users/:id/status` · `GET/PUT /admin/settings` · `PUT/DELETE /admin/settings/logo` |
+- A slot can never be booked twice: this is enforced both in code and in the database.
+- Patients can't cancel or reschedule within 24 hours of the visit.
+- Unconfirmed bookings are automatically moved to the doctor's next free slot.
+- Reminders are sent 1 day, 1 hour and 15 minutes before a visit.
+- The price is the doctor's fee plus the platform commission. It is fixed at the moment of booking.
 
 ## Project structure
 
 ```
-server/src
-  config/        env config, DB config, constants (statuses, rules)
-  models/        Sequelize models + associations
-  migrations/    schema, constraints, indexes
-  middlewares/   auth (JWT + roles), validation (zod), uploads, errors
-  validators/    request schemas
-  services/      business logic — appointment, doctor, admin, reminder, notification, …
-  controllers/   thin HTTP handlers
-  routes/        route table
-  jobs/          scheduler (reminders + unconfirmed appointments)
-  scripts/       seed, end-to-end test
-client/src
-  lib/           UI kit, API client, formatting, validation, hooks
-  context/       auth + branding
-  components/    app shell, sidebar, appointment actions, prescription, shared bits
-  pages/         auth, patient, doctor, admin and shared pages
+client/src     pages, components, API client
+server/src     routes → controllers → services → models
+server/database/schema.sql   the full database schema
 ```
-Patient: demo@gmail.com / Password@123
-Doctor: doc@gmail.com / Password@1234
-Admin: amrithamrith2753@gmail.com / Admin@1234

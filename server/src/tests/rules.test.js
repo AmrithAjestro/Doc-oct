@@ -4,10 +4,10 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { calculateFee } = require('../utils/fees');
+const { calculateFee } = require('../utils/helpers');
 const { present } = require('../services/appointment.service');
 const { parsePagination, roundMoney } = require('../utils/helpers');
-const { insideLateWindow } = require('../utils/runningLate');
+const { insideLateWindow } = require('../utils/helpers');
 
 const HOUR = 3600e3;
 const patient = { id: 'p1', role: 'user' };

@@ -6,8 +6,7 @@ import { Avatar, DoctorStatusBadge, ErrorBanner, Notice, Pagination } from '../.
 import { useAsync } from '../../lib/useAsync';
 import { useCounts } from '../../components/AppShell';
 import { useBranding } from '../../context/BrandingContext';
-import api, { errorMessage, unwrap } from '../../lib/api';
-import { certificateUrl } from '../../lib/files';
+import api, { errorMessage, unwrap, certificateUrl } from '../../lib/api';
 import { toast } from '../../lib/toast';
 import { APPOINTMENT_STATUS, dateTime, money, relative } from '../../lib/format';
 

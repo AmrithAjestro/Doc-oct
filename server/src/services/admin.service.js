@@ -10,7 +10,7 @@ const { getSettings } = require('./settings.service');
 const { cancelFutureFor } = require('./appointment.service');
 const { removeFile } = require('../middlewares/upload.middleware');
 
-/* ------------------------------------------------------------------ doctors */
+// doctors
 
 async function listDoctors(query) {
   const paging = parsePagination(query);
@@ -85,7 +85,7 @@ function certificateFile(doctor) {
   };
 }
 
-/* -------------------------------------------------------------------- users */
+// users
 
 async function listUsers(query) {
   const paging = parsePagination(query);
@@ -124,7 +124,7 @@ async function setUserActive(admin, id, isActive) {
   return { user, cancelledAppointments: cancelled };
 }
 
-/* ----------------------------------------------------------------- settings */
+// settings
 
 async function updateSettings(data) {
   const settings = await getSettings();

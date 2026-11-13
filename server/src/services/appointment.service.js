@@ -13,17 +13,17 @@ const { VISIT_TYPES } = require('../config/constants');
 const { sequelize, Appointment, Slot, DoctorProfile, User, Prescription, Review } = require('../models');
 const AppError = require('../utils/AppError');
 const { HOUR, formatDateTime, parsePagination, pageMeta } = require('../utils/helpers');
-const { calculateFee } = require('../utils/fees');
+const { calculateFee } = require('../utils/helpers');
 const { getSettings } = require('./settings.service');
 const { notify } = require('./notification.service');
 const reminders = require('./reminder.service');
 const waitlist = require('./waitlist.service');
-const { insideLateWindow } = require('../utils/runningLate');
+const { insideLateWindow } = require('../utils/helpers');
 
 const { LOCK_WINDOW_HOURS, AUTO_RESCHEDULE_MIN_LEAD_HOURS, MAX_AUTO_RESCHEDULES } = config.RULES;
 const LOCK_MS = LOCK_WINDOW_HOURS * HOUR;
 
-/* ------------------------------------------------------------------ helpers */
+// helpers
 
 const ms = (d) => new Date(d).getTime();
 const isInsideLockWindow = (startAt, now = Date.now()) => ms(startAt) - now < LOCK_MS;
@@ -127,7 +127,7 @@ function present(appt, actor, now = Date.now()) {
 
 const drName = (doctor) => `Dr. ${doctor?.user?.name || ''}`.trim();
 
-/* ------------------------------------------------------------------ booking */
+// booking
 
 async function book(actor, { slotId, reason }) {
   try {
@@ -200,7 +200,7 @@ async function book(actor, { slotId, reason }) {
   }
 }
 
-/* ------------------------------------------------------------- confirmation */
+// confirmation
 
 async function confirmAttendance(actor, id) {
   return sequelize.transaction(async (t) => {
@@ -233,7 +233,7 @@ async function confirmAttendance(actor, id) {
   });
 }
 
-/* --------------------------------------------------------------- reschedule */
+// reschedule
 
 /** Moves an appointment to another slot. Caller holds the locks and has validated the slot. */
 async function moveToSlot(appt, newSlot, t, { by }) {
@@ -327,7 +327,7 @@ async function reschedule(actor, id, { slotId }) {
   }
 }
 
-/* ------------------------------------------------------------------- cancel */
+// cancel
 
 /** Cancels inside an existing transaction. Used by the API, the scheduler and admin cascades. */
 async function cancelInTransaction(appt, { by, reason }, t) {
@@ -336,7 +336,6 @@ async function cancelInTransaction(appt, { by, reason }, t) {
 
   if (appt.slotId && ms(appt.startAt) > now) {
     const slot = await Slot.findByPk(appt.slotId, { transaction: t, lock: t.LOCK.UPDATE });
-    // A doctor who cancels is not available then, so the slot is blocked instead of reopened.
     // A doctor who cancels is unavailable then; a doctor running late cannot take a new patient then either.
     const keepClosed = by === ROLES.DOCTOR || insideLateWindow(appt.doctor, appt.startAt);
     if (slot) await slot.update({ status: keepClosed ? SLOT_STATUS.BLOCKED : SLOT_STATUS.AVAILABLE }, { transaction: t });
@@ -378,7 +377,7 @@ async function cancel(actor, id, { reason }) {
   });
 }
 
-/* ---------------------------------------------------- doctor: after the visit */
+// doctor: after the visit
 
 async function loadForDoctor(actor, id, t) {
   const appt = await loadLocked(id, t);
@@ -479,7 +478,7 @@ async function saveReview(actor, id, { rating, comment }) {
   return review;
 }
 
-/* -------------------------------------------------------------------- reads */
+// reads
 
 function scopeWhere(actor) {
   if (actor.role === ROLES.USER) return { userId: actor.id };
@@ -527,7 +526,7 @@ async function getById(actor, id) {
   return present(appt, actor);
 }
 
-/* --------------------------------------------------- doctor cannot attend */
+// doctor cannot attend
 
 /** The doctor's next free times this patient could take (for the "Can't attend" picker). */
 async function unavailableOptions(actor, id) {
@@ -601,7 +600,7 @@ async function doctorUnavailable(actor, id, { reason, slotId }) {
   }
 }
 
-/* ---------------------------------------------------------------- walk-ins */
+// walk-ins
 
 const normalisePhone = (p) => p.replace(/[\s-]/g, '');
 
@@ -721,7 +720,7 @@ async function caughtUp(actor) {
   return actor.doctorProfile;
 }
 
-/* ---------------------------------------------------------------- scheduler */
+// scheduler
 
 /**
  * Appointments still unconfirmed when the lock window opens are moved to the doctor's next free

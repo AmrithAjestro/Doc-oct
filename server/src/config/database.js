@@ -1,4 +1,4 @@
-// Used by both the app (models/index.js) and sequelize-cli (.sequelizerc).
+// Database connection settings used by models/index.js and scripts/init-db.js.
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
 

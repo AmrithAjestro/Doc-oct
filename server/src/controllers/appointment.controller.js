@@ -62,3 +62,13 @@ exports.savePrescription = async (req, res) => {
   await appointmentService.savePrescription(req.user, req.params.id, req.body);
   ok(res, await fresh(req, req.params.id));
 };
+
+// Waitlist
+const waitlist = require('../services/waitlist.service');
+
+exports.waitlistMine = async (req, res) => ok(res, await waitlist.mine(req.user));
+exports.waitlistJoin = async (req, res) => ok(res, await waitlist.join(req.user, req.params.id, req.body), {}, 201);
+exports.waitlistLeave = async (req, res) => {
+  await waitlist.leave(req.user, req.params.id);
+  ok(res, { id: req.params.id });
+};

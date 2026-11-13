@@ -14,7 +14,6 @@ const doctor = require('../controllers/doctor.controller');
 const appointment = require('../controllers/appointment.controller');
 const notification = require('../controllers/notification.controller');
 const admin = require('../controllers/admin.controller');
-const waitlistCtl = require('../controllers/waitlist.controller');
 
 const router = express.Router();
 const id = validate({ params: v.idParam });
@@ -27,7 +26,7 @@ const authLimiter = rateLimit({
   message: { success: false, code: 'RATE_LIMITED', message: 'Too many attempts. Please try again in a few minutes.' }
 });
 
-/* ---------------------------------------------------------------- public */
+// public
 
 router.get('/health', (req, res) => ok(res, { status: 'ok', time: new Date() }));
 
@@ -47,7 +46,7 @@ router.get(
   })
 );
 
-/* ------------------------------------------------------------------ auth */
+// auth
 
 router.post('/auth/register', authLimiter, validate({ body: v.auth.registerUser }), h(auth.registerUser));
 router.post('/auth/register/doctor', authLimiter, certificateUpload, validate({ body: v.auth.registerDoctor }), h(auth.registerDoctor));
@@ -59,7 +58,7 @@ router.post('/auth/logout-all', authenticate, h(auth.logoutEverywhere));
 router.post('/auth/forgot-password', authLimiter, validate({ body: v.auth.forgotPassword }), h(auth.forgotPassword));
 router.post('/auth/reset-password', authLimiter, validate({ body: v.auth.resetPassword }), h(auth.resetPassword));
 
-/* ------------------------------------------------------- doctors (browse) */
+// doctors (browse)
 
 router.get('/doctors', validate({ query: v.doctor.publicList }), h(doctor.list));
 router.get('/doctors/specializations', h(doctor.specializations));
@@ -68,7 +67,7 @@ router.get('/doctors/:id/slots', validate({ params: v.idParam, query: v.doctor.r
 router.get('/doctors/:id/reviews', validate({ params: v.idParam, query: v.notification.list }), h(doctor.reviews));
 router.get('/doctors/:id/certificate', authenticate, id, h(admin.downloadCertificate));
 
-/* -------------------------------------------------- signed-in doctor ("me") */
+// signed-in doctor ("me")
 
 const doctorOnly = [authenticate, requireRole(ROLES.DOCTOR)];
 router.get('/doctor/profile', doctorOnly, h(doctor.myProfile));
@@ -81,7 +80,7 @@ router.post('/doctor/slots', doctorOnly, requireApprovedDoctor, validate({ body:
 router.delete('/doctor/slots/:id', doctorOnly, requireApprovedDoctor, id, h(doctor.deleteSlot));
 router.post('/doctor/slots/:id/unblock', doctorOnly, requireApprovedDoctor, id, h(doctor.unblockSlot));
 
-/* ---------------------------------------------------------- appointments */
+// appointments
 
 const patientOnly = requireRole(ROLES.USER);
 const approvedDoctor = [requireRole(ROLES.DOCTOR), requireApprovedDoctor];
@@ -103,24 +102,24 @@ router.post('/appointments/:id/no-show', authenticate, approvedDoctor, id, h(app
 router.put('/appointments/:id/review', authenticate, patientOnly, validate({ params: v.idParam, body: v.appointment.review }), h(appointment.review));
 router.put('/appointments/:id/prescription', authenticate, approvedDoctor, validate({ params: v.idParam, body: v.appointment.prescription }), h(appointment.savePrescription));
 
-/* -------------------------------------------------------------- waitlist */
+// waitlist
 
-router.get('/waitlist', authenticate, patientOnly, h(waitlistCtl.mine));
-router.post('/doctors/:id/waitlist', authenticate, patientOnly, validate({ params: v.idParam, body: v.waitlist.join }), h(waitlistCtl.join));
-router.delete('/doctors/:id/waitlist', authenticate, patientOnly, id, h(waitlistCtl.leave));
+router.get('/waitlist', authenticate, patientOnly, h(appointment.waitlistMine));
+router.post('/doctors/:id/waitlist', authenticate, patientOnly, validate({ params: v.idParam, body: v.waitlist.join }), h(appointment.waitlistJoin));
+router.delete('/doctors/:id/waitlist', authenticate, patientOnly, id, h(appointment.waitlistLeave));
 
-/* --------------------------------------------------------- notifications */
+// notifications
 
 router.get('/notifications', authenticate, validate({ query: v.notification.list }), h(notification.list));
 router.get('/notifications/unread-count', authenticate, h(notification.unreadCount));
 router.patch('/notifications/read-all', authenticate, h(notification.markAllRead));
 router.patch('/notifications/:id/read', authenticate, id, h(notification.markRead));
 
-/* ------------------------------------------------------------- dashboard */
+// dashboard
 
 router.get('/dashboard', authenticate, h(async (req, res) => ok(res, await dashboardService.forActor(req.user))));
 
-/* ----------------------------------------------------------------- admin */
+// admin
 
 const adminOnly = [authenticate, requireRole(ROLES.ADMIN)];
 router.get('/admin/doctors', adminOnly, validate({ query: v.admin.doctors }), h(admin.listDoctors));

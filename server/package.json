@@ -7,13 +7,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "db:init": "node src/scripts/init-db.js && node src/scripts/seed.js",
-    "db:create": "sequelize-cli db:create",
-    "db:migrate": "sequelize-cli db:migrate",
-    "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
     "db:seed": "node src/scripts/seed.js",
     "db:seed:demo": "node src/scripts/seed.js --demo",
-    "db:setup": "npm run db:create && npm run db:migrate && npm run db:seed:demo",
-    "db:reset": "npm run db:migrate:undo && npm run db:migrate && npm run db:seed:demo",
+    "db:setup": "node src/scripts/init-db.js && node src/scripts/seed.js --demo",
+    "db:reset": "node src/scripts/init-db.js --reset && node src/scripts/seed.js --demo",
     "test": "node --test \"src/tests/*.test.js\"",
     "test:e2e": "node src/scripts/e2e.test.js",
     "test:e2e:clinic": "node src/scripts/e2e.clinic.test.js"
@@ -40,8 +37,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14",
-    "sequelize-cli": "^6.6.5"
+    "nodemon": "^3.1.14"
   },
   "nodemonConfig": {
     "watch": [

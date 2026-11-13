@@ -53,7 +53,7 @@ async function main() {
   const admin = await call('POST', '/auth/login', { body: { email: config.ADMIN_EMAIL, password: config.ADMIN_PASSWORD } });
   ok(admin);
 
-  /* ------------------------------------------------------------ setup */
+  // setup
   let doctor;
   let dt; // doctor token
   await step('setup: a doctor registers and is approved', async () => {
@@ -93,7 +93,7 @@ async function main() {
     S = { soon, later, tmrA, tmrB, day3 };
   });
 
-  /* ---------------------------------------------------- doctor profile */
+  // doctor profile
   await step('doctor profile: photo upload is public; a fake image is refused', async () => {
     const form = new FormData();
     form.append('photo', new Blob([PNG], { type: 'image/png' }), 'me.png');
@@ -117,7 +117,7 @@ async function main() {
     assert.equal(pub.data.ratingCount, 0);
   });
 
-  /* ------------------------------------------------------- bookings */
+  // bookings
   let apptA;
   let apptB;
   await step('patient A books a visit in 20 minutes (inside 24 h: confirmed and locked)', async () => {
@@ -139,7 +139,7 @@ async function main() {
     assert.equal(mine.data.length, 1);
   });
 
-  /* -------------------------------------------------------- walk-ins */
+  // walk-ins
   let walkIn;
   await step('emergency walk-in for a new patient: visit starts now, no commission, overlapping booking reported', async () => {
     const res = await call('POST', '/appointments/walk-in', {
@@ -177,7 +177,7 @@ async function main() {
     assert.equal(res.status, 403);
   });
 
-  /* ---------------------------------------------- delay and running late */
+  // delay and running late
   await step('delay notice: patient is told, may now cancel or move, doctor shows as running late', async () => {
     const res = await call('POST', '/appointments/notify-delay', { token: dt, body: { appointmentIds: [apptA.id], minutes: 40 } });
     ok(res);
@@ -218,7 +218,7 @@ async function main() {
     assert.equal((await call('GET', '/waitlist', { token: P.c.token })).data.length, 0);
   });
 
-  /* ------------------------------------------------------ can't attend */
+  // can't attend
   await step("can't attend: the visit moves to the next free time at the same price; old slot blocked", async () => {
     const options = await call('GET', `/appointments/${apptB.id}/unavailable-options`, { token: dt });
     ok(options);
@@ -261,7 +261,7 @@ async function main() {
     assert.equal(res.data.appointment.cancelledBy, 'doctor');
   });
 
-  /* ---------------------------------------------------------- reviews */
+  // reviews
   await step('reviews: only after a completed visit; the rating shows on the doctor', async () => {
     const early = await call('PUT', `/appointments/${apptB.id}/review`, { token: P.b.token, body: { rating: 5 } });
     assert.equal(early.code, 'NOT_COMPLETED');
@@ -280,7 +280,7 @@ async function main() {
     assert.equal(reviews.data[0].author, 'Clinic', 'first name only');
   });
 
-  /* -------------------------------------------------- accounts / sessions */
+  // accounts / sessions
   await step('forgot password answers the same for known and unknown e-mails', async () => {
     const known = await call('POST', '/auth/forgot-password', { body: { email: P.c.email } });
     const unknown = await call('POST', '/auth/forgot-password', { body: { email: `nobody.${stamp}@test.local` } });

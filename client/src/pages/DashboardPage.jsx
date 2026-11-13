@@ -113,7 +113,7 @@ function RunningLateBanner({ late }) {
   );
 }
 
-/* --------------------------------------------------------------- patient */
+// patient
 
 function UserDashboard({ data, user, setData }) {
   const { currency } = useBranding();
@@ -175,7 +175,7 @@ function UserDashboard({ data, user, setData }) {
   );
 }
 
-/* ---------------------------------------------------------------- doctor */
+// doctor
 
 function DoctorDashboard({ data, user, setData }) {
   const { currency } = useBranding();
@@ -260,7 +260,7 @@ function DoctorDashboard({ data, user, setData }) {
   );
 }
 
-/* ----------------------------------------------------------------- admin */
+// admin
 
 function AdminDashboard({ data }) {
   const { currency } = useBranding();

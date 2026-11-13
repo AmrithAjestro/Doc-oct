@@ -80,8 +80,8 @@ start "" http://localhost:5173
 
 echo.
 echo All applications started. Close their windows to stop them.
-echo   Patient : patient@demo.local     / Demo@1234
-echo   Doctor  : ananya.rao@demo.local  / Demo@1234
-echo   Admin   : admin@docbook.local    / Admin@1234
+echo   Patient : demo@gmail.com              / Password@123
+echo   Doctor  : doc@gmail.com               / Password@1234
+echo   Admin   : amrithamrith2753@gmail.com  / Admin@1234
 echo.
 endlocal

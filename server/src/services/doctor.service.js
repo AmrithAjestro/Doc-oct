@@ -5,7 +5,7 @@ const path = require('path');
 const { sequelize, DoctorProfile, User, Slot, Appointment, Review } = require('../models');
 const AppError = require('../utils/AppError');
 const { DAY, MINUTE, parsePagination, pageMeta } = require('../utils/helpers');
-const { calculateFee } = require('../utils/fees');
+const { calculateFee } = require('../utils/helpers');
 const { getSettings } = require('./settings.service');
 const { removeFile } = require('../middlewares/upload.middleware');
 const waitlist = require('./waitlist.service');
@@ -32,7 +32,7 @@ const withPricing = (doctor, settings) => {
   return json;
 };
 
-/* ----------------------------------------------------------- public browsing */
+// public browsing
 
 async function listPublic(query) {
   const paging = parsePagination(query, { defaultLimit: 12, maxLimit: 50 });
@@ -121,7 +121,7 @@ async function reviews(doctorId, query) {
   return { rows: data, meta: pageMeta(paging, count) };
 }
 
-/* ----------------------------------------------------------- doctor: profile */
+// doctor: profile
 
 async function updateProfile(profile, data) {
   const { name, phone, ...profileData } = data;
@@ -168,7 +168,7 @@ async function replaceCertificate(profile, file) {
   return profile;
 }
 
-/* ------------------------------------------------------------- doctor: slots */
+// doctor: slots
 
 async function listOwnSlots(profile, { from, to }) {
   const { start, end } = clampRange(from, to, MAX_SLOT_RANGE_DAYS);

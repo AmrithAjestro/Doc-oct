@@ -4,13 +4,12 @@ import { PageHeader, Panel, SectionHeader, Field, Input, Textarea, Button } from
 import { Avatar, DoctorStatusBadge, Notice } from '../components/common';
 import FilePicker from '../components/FilePicker';
 import { useAuth } from '../context/AuthContext';
-import api, { errorMessage, unwrap } from '../lib/api';
+import api, { errorMessage, unwrap, openCertificate } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { askConfirm } from '../lib/ui';
 import { toast } from '../lib/toast';
 import { CERTIFICATE_TYPES, LOGO_TYPES, fileProblem, passwordProblem, phoneProblem } from '../lib/validation';
 import { ROLE_LABEL } from '../lib/format';
-import { openCertificate } from '../lib/files';
 
 function PersonalDetails() {
   const { user, setUser } = useAuth();

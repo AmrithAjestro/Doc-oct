@@ -5,7 +5,7 @@ const { WaitlistEntry, DoctorProfile, User } = require('../models');
 const AppError = require('../utils/AppError');
 const { formatDateTime } = require('../utils/helpers');
 const { notify } = require('./notification.service');
-const { insideLateWindow } = require('../utils/runningLate');
+const { insideLateWindow } = require('../utils/helpers');
 
 // Do not send the same patient another "a time opened" message within this period.
 const QUIET_MINUTES = 30;

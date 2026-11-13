@@ -8,7 +8,7 @@ import { X, Search, ChevronDown, Inbox, Loader2, AlertTriangle } from 'lucide-re
 
 const cx = (...parts) => parts.filter(Boolean).join(' ');
 
-/* ------------------------------- Surfaces & layout ------------------------------- */
+// Surfaces & layout
 
 export function Panel({ className = '', children, padded = true, ...rest }) {
   return (
@@ -48,7 +48,7 @@ export function Toolbar({ children, className = '' }) {
   return <div className={cx('flex flex-wrap items-center gap-2 py-1', className)}>{children}</div>;
 }
 
-/* ------------------------------- Controls ------------------------------- */
+// Controls
 
 const BUTTON_VARIANTS = {
   primary: 'bg-brand-600 text-white hover:bg-brand-700 border-transparent dark:bg-brand-500 dark:hover:bg-brand-400',
@@ -192,7 +192,7 @@ export function SegmentedControl({ options, value, onChange, className = '' }) {
   );
 }
 
-/* ------------------------------- Data display ------------------------------- */
+// Data display
 
 const TONES = {
   neutral: 'bg-subtle text-ink-2',
@@ -321,7 +321,7 @@ export function DataTable({ columns, rows, rowKey = (row, i) => row.id ?? i, loa
   );
 }
 
-/* ------------------------------- Overlays ------------------------------- */
+// Overlays
 
 const MODAL_WIDTH = {
   sm: 'max-w-sm',
@@ -431,7 +431,7 @@ export function Drawer({ open, onClose, title, subtitle, size = 'md', className 
   );
 }
 
-/* ------------------------------- In-app confirm ------------------------------- */
+// In-app confirm
 
 // One confirm at a time, shown by <ConfirmHost /> (mounted once in App) — replaces window.confirm,
 // whose browser popup looks different on every PC and can be switched off by the browser.
@@ -531,7 +531,7 @@ export function ConfirmHost() {
 
 export { cx };
 
-/* ------------------------------- Table helpers for hand-built <table className="ledger-table"> ------------------------------- */
+// Table helpers for hand-built <table className="ledger-table">
 
 /** Full-width table row holding an EmptyState (no hover highlight). */
 export function EmptyRow({ colSpan, icon, title, hint, action }) {

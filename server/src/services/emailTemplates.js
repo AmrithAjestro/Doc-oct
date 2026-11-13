@@ -94,7 +94,7 @@ function layout({ theme = 'info', title, name, message, details = [], button, no
 
 const firstName = (n) => (n || '').trim().split(/\s+/)[0] || undefined;
 
-/* ---------- Account e-mails ---------- */
+// Account e-mails
 
 const welcomePatient = (user, brand) => ({
   subject: `Welcome to ${brand.appName || 'DocBook'}`,
@@ -169,7 +169,7 @@ const passwordChanged = (user, brand) => ({
   })
 });
 
-/* ---------- Notification e-mails (one per notification type) ---------- */
+// Notification e-mails (one per notification type)
 
 const THEME_BY_TYPE = {
   booking_created: 'success',

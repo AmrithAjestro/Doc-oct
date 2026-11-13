@@ -13,7 +13,7 @@ const config = require('../config/config');
 const { ROLES, DOCTOR_STATUS, APPOINTMENT_STATUS } = require('../config/constants');
 const { sequelize, User, DoctorProfile, Slot, Appointment, Prescription } = require('../models');
 const { getSettings } = require('../services/settings.service');
-const { calculateFee } = require('../utils/fees');
+const { calculateFee } = require('../utils/helpers');
 const { MINUTE, DAY } = require('../utils/helpers');
 
 const DEMO_PASSWORD = 'Demo@1234';
