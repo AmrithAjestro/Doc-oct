@@ -1,8 +1,3 @@
--- Doctor Appointment System - full PostgreSQL schema
--- Equivalent to running every migration in src/migrations (in order).
--- Usage:  npm run db:init      (applies this file, then seeds admin + settings)
--- Note: if you load this file, do NOT also run `sequelize-cli db:migrate` on the same DB
--- (the tables already exist and the SequelizeMeta table is marked below).
 
 BEGIN;
 
