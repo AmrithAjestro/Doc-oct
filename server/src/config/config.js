@@ -24,7 +24,8 @@ const config = {
   JWT_SECRET: process.env.JWT_SECRET || 'dev-only-secret-change-me',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
 
-  UPLOAD_DIR: path.resolve(__dirname, '../../uploads'),
+  // On Railway, mount a Volume and point UPLOAD_DIR at it so uploads survive redeploys.
+  UPLOAD_DIR: process.env.UPLOAD_DIR ? path.resolve(process.env.UPLOAD_DIR) : path.resolve(__dirname, '../../uploads'),
 
   // Where the React app runs; used to build links in e-mails (password reset).
   APP_URL: (process.env.APP_URL || (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',')[0]).trim().replace(/\/$/, ''),

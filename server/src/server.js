@@ -9,7 +9,7 @@ async function main() {
     console.log('🐘 PostgreSQL connected');
   } catch (err) {
     console.error('❌ Could not connect to PostgreSQL:', err.message);
-    console.error('   Check DB_* in server/.env, then run: npm run db:setup');
+    console.error('   Check DATABASE_URL (or DB_*) in the environment, then run: npm run db:init');
     process.exit(1);
   }
 

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "db:init": "node src/scripts/init-db.js && node src/scripts/seed.js",
     "db:create": "sequelize-cli db:create",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
@@ -49,5 +50,8 @@
     "ignore": [
       "uploads"
     ]
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
